@@ -2,7 +2,7 @@
 
 <p>The AudioApp is used to detect the user's facial expressions through acoustic waves. It can play both audio files and video files. Starting from 7/5/2021, object detector feature is added to AudioApp. You can simply click SWTICH button to switch between recorder and detector. </p>
 <p>The following image shows the main page of this application.</p>
-<img src="https://user-images.githubusercontent.com/54745798/124532570-d0c54700-ddde-11eb-89b7-0c4f8e347f6f.png" />
+<img src="https://user-images.githubusercontent.com/54745798/124532570-d0c54700-ddde-11eb-89b7-0c4f8e347f6f.png" alt="App screenshot"/>
 
 <h4>You can find the release APK file in app/release folder and debug APK file in app/debug.</h4>
 <h5>Recorder</h5>
