@@ -1,0 +1,22 @@
+<project version="4">
+  <component name="DesignSurface">
+    <option name="filePathToZoomLevelMap">
+      <map>
+        <entry key="..\:/Users/ZHONGEN/Desktop/Audio/Audio/app/src/main/res/layout/activity_list.xml" value="0.36666666666666664" />
+        <entry key="..\:/Users/ZHONGEN/Desktop/Audio/Audio/app/src/main/res/layout/activity_main.xml" value="0.36666666666666664" />
+        <entry key="..\:/Users/ZHONGEN/Desktop/Audio/Audio/app/src/main/res/layout/adapter_file_list.xml" value="0.36666666666666664" />
+        <entry key="..\:/Users/ZHONGEN/Desktop/Audio/Audio/app/src/main/res/layout/content_main.xml" value="0.36666666666666664" />
+        <entry key="..\:/Users/ZHONGEN/Desktop/Audio/Audio/app/src/main/res/layout/fragment_first.xml" value="0.25" />
+        <entry key="..\:/Users/ZHONGEN/Desktop/Audio/Audio/app/src/main/res/layout/fragment_second.xml" value="0.36666666666666664" />
+        <entry key="..\:/Users/Zhongen/Desktop/summer research/Audio/app/src/main/res/layout/fragment_first.xml" value="0.23802083333333332" />
+        <entry key="..\:/Users/Zhongen/Desktop/summer research/Audio/app/src/main/res/layout/fragment_second.xml" value="0.2722222222222222" />
+      </map>
+    </option>
+  </component>
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_15" default="true" project-jdk-name="corretto-15" project-jdk-type="JavaSDK">
+    <output url="file://$PROJECT_DIR$/build/classes" />
+  </component>
+  <component name="ProjectType">
+    <option name="id" value="Android" />
+  </component>
+</project>
