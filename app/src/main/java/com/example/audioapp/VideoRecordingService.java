@@ -189,6 +189,7 @@ public class VideoRecordingService extends Service {
 
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
             contentValues.put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/CameraX-Video");
+            //contentValues.put(MediaStore.Video.Media.RELATIVE_PATH, "Android/data/com.example.AudioCameraApp48k/files/AudioAppStorage/video");
         }
 
         MediaStoreOutputOptions mediaStoreOutputOptions = new MediaStoreOutputOptions.Builder(
@@ -344,14 +345,14 @@ public class VideoRecordingService extends Service {
         FFmpegKit.executeAsync(command, session -> {
             if (session.getReturnCode().isValueSuccess()) {
                 File originalFile = new File(inputFilePath);
-                if (originalFile.exists()) {
-                    boolean isDeleted = originalFile.delete();
-                    if (isDeleted) {
-                        Log.d("VideoCompression", "Original video deleted successfully.");
-                    } else {
-                        Log.e("VideoCompression", "Failed to delete the original video.");
-                    }
-                }
+//                if (originalFile.exists()) {
+//                    boolean isDeleted = originalFile.delete();
+//                    if (isDeleted) {
+//                        Log.d("VideoCompression", "Original video deleted successfully.");
+//                    } else {
+//                        Log.e("VideoCompression", "Failed to delete the original video.");
+//                    }
+//                }
              ;
 
             } else {
