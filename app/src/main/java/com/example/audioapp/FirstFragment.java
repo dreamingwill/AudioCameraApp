@@ -10,12 +10,13 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
+import android.content.res.AssetManager;
 import android.database.Cursor;
+import android.graphics.BitmapFactory;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
@@ -40,6 +41,7 @@ import android.os.Handler;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.ImageProxy;
@@ -53,6 +55,7 @@ import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.PermissionChecker;
 import androidx.fragment.app.Fragment;
+import android.graphics.Bitmap;
 
 
 import com.example.audioapp.entity.SensorData;
@@ -85,7 +88,6 @@ import androidx.core.content.ContextCompat;
 import com.example.audioapp.databinding.FragmentFirstBinding;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -93,7 +95,8 @@ import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.core.Preview;
 import androidx.camera.core.CameraSelector;
 
-import com.arthenica.ffmpegkit.FFmpegKit;
+
+import org.pytorch.Module;
 
 //@RequiresApi(api = Build.VERSION_CODES.KITKAT)
 public class FirstFragment extends Fragment {
@@ -121,7 +124,7 @@ public class FirstFragment extends Fragment {
     private Button clickShow;
     private int phrase_type;
     private Button start,pause,play, stop, type, pause2, next, previous, loop, switch_btn, playSignalButton;
-    private Button imageCaptureButton, videoCaptureButton, collectDataButton,frontRecordingButton,screenRecordButton;
+    private Button imageCaptureButton, videoCaptureButton, collectDataButton,frontRecordingButton,screenRecordButton, modelPredictButton, monitorButton;
     private TextView wavplaying;
     private ProgressBar progressBar;
     private PreviewView viewFinder = null;
@@ -132,6 +135,10 @@ public class FirstFragment extends Fragment {
     String[] musiclist;
     int listIndex;
     int listLength;
+    private ModelLoader modelLoader;
+
+    private int cycleCount = 0; // 周期计数器
+    private Handler cycleHandler = new Handler();
 
 
 
@@ -144,22 +151,28 @@ public class FirstFragment extends Fragment {
     private Recording recording = null;// video recording
 
     private ExecutorService cameraExecutor;
-    private boolean isRecordingVideo = false, isRecording_screen = false; //frontRecording
+    private boolean isRecordingVideo = false, isRecording_screen = false, isSignalPlaying = false; //frontRecording
 
 
-    private static final String TAG = "CameraXApp";
+    private static final String TAG = "FirstFragment";
     private static final String FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS";
     private static final int REQUEST_CODE_PERMISSIONS = 10;
     private static final String[] REQUIRED_PERMISSIONS;
     //screen recording
     private static final int SCREEN_RECORD_REQUEST_CODE = 1000; // 录屏请求码
+    private static final int REQUEST_CODE_SCREEN_CAPTURE = 1001;// 截屏请求码
     private MediaProjectionManager mediaProjectionManager;
     private MediaProjection mediaProjection;
     private MediaRecorder mediaRecorder;
     private VirtualDisplay virtualDisplay;
     private int screenDensity;
+    // model thing
+    Bitmap bitmap = null;
 
-    private ActivityResultLauncher<Intent> screenCaptureLauncher;
+    AssetManager assetManager = null;
+    private boolean isMonitoring = false;
+    private ActivityResultLauncher<Intent> screenCaptureLauncher, monitoringLauncher;
+
 
     static {
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
@@ -217,7 +230,7 @@ public class FirstFragment extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
+        assetManager = requireActivity().getAssets();
 
 
         //motion
@@ -231,8 +244,24 @@ public class FirstFragment extends Fragment {
         mSensorManager2 = (SensorManager) getActivity().getSystemService(Context.SENSOR_SERVICE);
         mSensor2 = mSensorManager2.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
 
-        mSensorManager.registerListener(mListener, mSensor, 50000);
-        mSensorManager2.registerListener(mListener2, mSensor2, 50000);
+        mSensorManager.registerListener(mListener, mSensor, 50_000);
+        mSensorManager2.registerListener(mListener2, mSensor2, 50_000);
+
+
+        // creating bitmap from packaged into app android asset 'image.jpg',
+        // app/src/main/res/raw/image.jpg
+        try {
+            bitmap = BitmapFactory.decodeStream(assetManager.open("lc.png"));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        //bitmap = BitmapFactory.decodeStream(getResources().openRawResource(R.raw.anger_me));
+        // loading serialized torchscript module from packaged into app android asset model.pt,
+        // app/src/main/res/raw/
+        // 加载模型
+        modelLoader = new ModelLoader(assetManager);
+
     }
 
     private class myOnTouchListener implements View.OnTouchListener {
@@ -397,7 +426,7 @@ public class FirstFragment extends Fragment {
         try {
             final CellProcessor[] processors = getProcessors();
             Map<String,String> map = new HashMap<>();
-            SimpleDateFormat formater = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
+            SimpleDateFormat formater = new SimpleDateFormat(FILENAME_FORMAT);
             map.put(HEADER[0],formater.format(new Date()));
             map.put(HEADER[1], String.valueOf(mData.getX()));
             map.put(HEADER[2], String.valueOf(mData.getY()));
@@ -422,6 +451,7 @@ public class FirstFragment extends Fragment {
         }
     }
 
+    @SuppressLint("SetTextI18n")
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         Log.e(TAG, "onViewCreated:");
@@ -473,7 +503,31 @@ public class FirstFragment extends Fragment {
         screenDensity = getResources().getDisplayMetrics().densityDpi;
         // 获取按钮引用
         screenRecordButton = view.findViewById(R.id.screen_record_button);
+        modelPredictButton = view.findViewById(R.id.model_predict_button);
+        monitorButton = view.findViewById(R.id.monitor_button);
 
+
+        // 新建一个用于监测的 launcher
+        monitoringLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                        Log.d(TAG, "monitoringLauncher: received screen capture result");
+                        Intent data = result.getData();
+
+                        // 启动 EmotionMonitoringService，并传入权限数据
+                        Intent serviceIntent = new Intent(getContext(), EmotionMonitoringService.class);
+                        serviceIntent.putExtra("resultCode", result.getResultCode());
+                        serviceIntent.putExtra("resultData", data);
+                        requireContext().startService(serviceIntent);
+                        // 修改界面
+                        isMonitoring = true;
+                        monitorButton.setText("stop monitoring");
+                        Log.d(TAG, "Monitoring service started: " + serviceIntent.toString());
+                    } else {
+                        Toast.makeText(getContext(), "屏幕录制权限未授权", Toast.LENGTH_SHORT).show();
+                    }
+                });
 
         // 初始化 ActivityResultLauncher
         screenCaptureLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -629,33 +683,23 @@ public class FirstFragment extends Fragment {
                 }
             }
         });
-        playSignalButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (player.isPlaying()) {
-                    // 停止音频播放
-                    player.pause();
-                    playSignalButton.setText("signal");
-                } else {
-                    // 播放音频
-                    try {
-                        // 重置 player
-                        player.reset();
-                        // 设置音频资源，使用 getResources().openRawResourceFd() 来获取资源
-                        AssetFileDescriptor afd = getResources().openRawResourceFd(R.raw.fmcw_signal_cos); // 替换为你自己的文件名
-                        player.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
-                        player.prepare(); // 准备播放
-                        player.setLooping(true); // 设置为循环播放
-                        player.start(); // 开始播放
+        playSignalButton.setOnClickListener(view1 -> {
+            if (isSignalPlaying) {
+                // 停止音频播放
+                Intent serviceIntent = new Intent(getContext(), MediaPlayerService.class);
+                requireContext().stopService(serviceIntent);
+                playSignalButton.setText("signal");
+                isSignalPlaying = false;
+            } else {
+                // 播放音频
+                Intent serviceIntent = new Intent(getContext(), MediaPlayerService.class);
+                requireContext().startService(serviceIntent);
 
-                        // 设置按钮文本为 "停止"
-                        playSignalButton.setText("stop");
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-
+                // 设置按钮文本为 "停止"
+                playSignalButton.setText("stop");
+                isSignalPlaying = true;
             }
+
         });
         loop.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -795,7 +839,7 @@ public class FirstFragment extends Fragment {
 
 
 
-        collectDataButton.setOnClickListener(v -> collectData(6000));
+        collectDataButton.setOnClickListener(v -> collectData(15));
 
         videoCaptureButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -821,12 +865,60 @@ public class FirstFragment extends Fragment {
 
             }
         });
+        imageCaptureButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                takePhoto();
+            }
+        });
+
+        modelPredictButton.setOnClickListener(new View.OnClickListener() {
+            @SuppressLint("SetTextI18n")
+            @Override
+            public void onClick(View view) {
+                // 运行模型
+                if (bitmap != null) {
+                    long startTime = System.currentTimeMillis();
+
+                    float[] output = modelLoader.runModel(modelLoader.getExampleBitmap());
+                    long endTime = System.currentTimeMillis();
+                    long duration = endTime - startTime;
+                    // 处理输出结果
+                    System.out.printf("模型 %s 的预测图片 %s 结果 -> a: %.4f, v: %.4f, 耗时: %d ms%n", ModelLoader.modelPath, ModelLoader.exampleImgPath, output[0], output[1], duration);
+                    Log.d(TAG, "onClick: a:" + output[0] + " , v:" + output[1] + ", 耗时: " + duration + " ms");
+                    motionText.setText("a: " + output[0] + " , v " + output[1] + ", \n耗时: " + duration + " ms");
+                }
+
+
+
+            }
+        });
+        monitorButton.setOnClickListener(new View.OnClickListener() {
+            @SuppressLint("SetTextI18n")
+            @Override
+            public void onClick(View view) {
+                if (!isMonitoring) {
+                    // 使用 monitoringLauncher 启动屏幕录制权限请求，后续回调中会启动 EmotionMonitoringService
+                    Intent captureIntent = mediaProjectionManager.createScreenCaptureIntent();
+                    monitoringLauncher.launch(captureIntent);
+                    // 此处 isMonitoring 状态可在回调中设置，或者你也可以在点击后就设置为 true
+
+                } else {
+                    // 停止监测
+                    Intent serviceIntent = new Intent(getContext(), EmotionMonitoringService.class);
+                    requireContext().stopService(serviceIntent);
+                    monitorButton.setText("monitor");
+                    isMonitoring = false;
+                }
+            }
+        });
 
         cameraExecutor = Executors.newSingleThreadExecutor();
 
 
         verifyPermissions(getActivity());
     }
+
 
     private void startScreenRecording() {
         Intent intent = mediaProjectionManager.createScreenCaptureIntent();
@@ -838,15 +930,8 @@ public class FirstFragment extends Fragment {
         requireContext().stopService(serviceIntent);
     }
 
-
-
-
-
-    private  void collectData(int durationMs){
-        // to do
-
-        // 显示准备开始的提示，等待2秒
-
+    private void collectData(int times) {
+        cycleCount = 0; // 重置计数器
         // 显示等待提示
         phrases.setText("准备开始表情...");
         progressBar.setVisibility(View.GONE); // 确保进度条隐藏
@@ -857,61 +942,60 @@ public class FirstFragment extends Fragment {
 
         //executor.execute(this::startVideoRecording);
         // 启动视频录制服务
-        Intent videoRecordingIntent = new Intent(getContext(), VideoRecordingService.class);
-        requireContext().startService(videoRecordingIntent);
-        // 启动音频录制
-        start.setText("Stop audio Rec");
+        Intent serviceIntent = new Intent(getActivity(), VideoRecordingService.class);
+        requireActivity().startService(serviceIntent);
+        isRecordingVideo = true;
         startAudioRecording();
-
-        // 设置定时器，n 毫秒后停止录制
-        new Handler().postDelayed(new Runnable() {
+        cycleHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                // 停止视频录制
-                //stopVideoRecording();
-                requireContext().stopService(videoRecordingIntent);
+                if (cycleCount >= times) {
+                    // 停止视频录制
+                    //stopVideoRecording();
+                    requireContext().stopService(serviceIntent);
 
-                // 停止音频录制
-                stopAudioRecording();
+                    // 停止音频录制
+                    stopAudioRecording();
 
-                progressBar.setVisibility(View.GONE); // 确保进度条隐藏
-                start.setEnabled(true);
-                videoCaptureButton.setEnabled(true);
-                collectDataButton.setEnabled(true);
-            }
-        }, durationMs);  // 延迟 durationMs 毫秒
-// 在2秒后显示提示文本和进度条
-        new Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                // 更改提示文本
-                phrases.setText("开始做表情!");
-                progressBar.setVisibility(View.VISIBLE); // 显示进度条
+                    progressBar.setVisibility(View.GONE); // 确保进度条隐藏
+                    start.setEnabled(true);
+                    videoCaptureButton.setEnabled(true);
+                    collectDataButton.setEnabled(true);
+                    return; // 完成15个周期后停止
 
-                // 启动4秒的进度条
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        for (int i = 0; i <= 100; i++) {
-                            final int progress = i;
-                            // 更新进度条，注意更新UI需要在主线程
-                            getActivity().runOnUiThread(() -> progressBar.setProgress(progress));
+                }
+                cycleCount++;
 
-                            try {
-                                Thread.sleep(40);  // 每40ms更新一次进度条（4秒/100步）
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
+                // 阶段1: 更新提示文本
+                phrases.setText("开始做表情！当前第"+cycleCount+"次");
+                progressBar.setVisibility(View.VISIBLE);
+                progressBar.setProgress(0);
+
+                // 阶段2: 启动3秒的进度条
+                new Thread(() -> {
+                    for (int i = 0; i <= 100; i++) {
+                        final int progress = i;
+                        getActivity().runOnUiThread(() ->
+                                progressBar.setProgress(progress)
+                        );
+                        try {
+                            Thread.sleep(30); // 30ms × 100 = 3秒
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
                         }
-                        getActivity().runOnUiThread(() -> {
-                            phrases.setText("表情录制完成!");
-                        });
                     }
+
+                    // 阶段3: 进度条完成后的1秒等待
+                    getActivity().runOnUiThread(() -> {
+                        phrases.setText("请恢复表情");
+                        cycleHandler.postDelayed(() -> {
+                            // 开始下一周期
+                            cycleHandler.postDelayed(this, 1000); // 下一周期的初始等待1秒
+                        }, 825); // 当前周期结束后的等待1秒
+                    });
                 }).start();
             }
-        }, 2000); // 延迟2秒后显示提示文本和进度条
-
-
+        }, 1000); // 第一个周期的初始等待1秒
     }
     private void startAudioRecording() {
 // 获取当前时间的毫秒值
@@ -920,67 +1004,6 @@ public class FirstFragment extends Fragment {
         mAudioRecorder.startRecord(null);
         //start.setText("Stop Recording");
         initCSVFile(FileUtil.getCSVFileAbsolutePath(fileName));
-    }
-
-    private void startVideoRecording() {
-        if (videoCapture == null) return;
-        //videoCaptureButton.setEnabled(false);
-
-        Log.d("captureVideo", "start recording");
-
-        // 获取当前时间作为文件名
-        String fileName = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-
-        ContentValues contentValues = new ContentValues();
-        contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
-        contentValues.put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4");
-
-        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
-            contentValues.put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/CameraX-Video");
-        }
-
-        MediaStoreOutputOptions mediaStoreOutputOptions = new MediaStoreOutputOptions.Builder(
-                requireContext().getContentResolver(),
-                MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-        ).setContentValues(contentValues).build();
-
-        PendingRecording pendingRecording = videoCapture.getOutput()
-                .prepareRecording(requireActivity(), mediaStoreOutputOptions);
-
-        // 加声音
-        if (PermissionChecker.checkSelfPermission(
-                requireContext(),
-                Manifest.permission.RECORD_AUDIO
-        ) == PermissionChecker.PERMISSION_GRANTED) {
-            pendingRecording = pendingRecording.withAudioEnabled();
-        }
-
-        recording = pendingRecording.start(
-                ContextCompat.getMainExecutor(requireContext()),
-                recordEvent -> {
-                    if (recordEvent instanceof VideoRecordEvent.Start) {
-                        videoCaptureButton.setText(getString(R.string.stop_capture));
-                        //videoCaptureButton.setEnabled(true);
-                    } else if (recordEvent instanceof VideoRecordEvent.Finalize) {
-                        VideoRecordEvent.Finalize finalizeEvent = (VideoRecordEvent.Finalize) recordEvent;
-                        if (!finalizeEvent.hasError()) {
-                            Uri videoUri = finalizeEvent.getOutputResults().getOutputUri();
-                            String inputFilePath = getFilePathFromUri(videoUri);
-                            String outputFilePath = FileUtil.getVideoFileAbsolutePath(fileName);
-
-                            // 压缩视频
-                            compressVideo(inputFilePath, outputFilePath);
-
-                            String msg = "Video capture succeeded: " + videoUri;
-                            Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
-                        } else {
-                            Log.e(TAG, "Video capture ends with error: " + finalizeEvent.getError());
-                        }
-                        videoCaptureButton.setText(getString(R.string.start_capture));
-                        videoCaptureButton.setEnabled(true);
-                    }
-                }
-        );
     }
 
     private void stopAudioRecording() {
@@ -1004,8 +1027,28 @@ public class FirstFragment extends Fragment {
 
 
     private void takePhoto() {
+        Log.d(TAG, "takePhoto: clicked");
         // Placeholder for take photo logic
-        if (imageCapture == null) return;
+        if (imageCapture == null) {
+            Log.d(TAG, "imageCapture == null");
+            if (isRecordingVideo) {
+                // 停止录制
+
+                isRecordingVideo = false;
+                imageCaptureButton.setText("take photos");
+                // 音频
+                stopAudioRecording();
+                imageCaptureButton.setEnabled(true);
+            } else {
+                // 启动录制
+
+                isRecordingVideo = true;
+                imageCaptureButton.setText("stop take photos");
+                // 音频
+                startAudioRecording();
+            }
+            return;
+        }
         Log.d("takePhoto", "ImageCapture is initialized");
 
         // Create a time-stamped name and MediaStore entry
@@ -1045,35 +1088,35 @@ public class FirstFragment extends Fragment {
                 }
         );
     }
-    private void compressVideo(String inputFilePath, String outputFilePath) {
-        String command = "-i " + inputFilePath + " -c:v mpeg4  -b:v 500k -vf scale=640:-2 -r 5 " + outputFilePath;
-        Log.d("FFmpegCommand", "Command: " + command);
-        FFmpegKit.executeAsync(command, session -> {
-            if (session.getReturnCode().isValueSuccess()) {
-                File originalFile = new File(inputFilePath);
-                if (originalFile.exists()) {
-                    boolean isDeleted = originalFile.delete();
-                    if (isDeleted) {
-                        Log.d("VideoCompression", "Original video deleted successfully.");
-                    } else {
-                        Log.e("VideoCompression", "Failed to delete the original video.");
-                    }
-                }
-                // 切换到主线程显示成功消息
-                requireActivity().runOnUiThread(() -> {
-                    Toast.makeText(requireContext(), "Video compression succeeded!", Toast.LENGTH_SHORT).show();
-                });
-
-            } else {
-                // 切换到主线程显示失败消息
-                String errorLog = session.getOutput();
-                Log.e("FFmpegError", "Command failed: " + errorLog);
-                requireActivity().runOnUiThread(() ->
-                        Toast.makeText(requireContext(), "Video compression failed: " + errorLog, Toast.LENGTH_SHORT).show()
-                );
-            }
-        });
-    }
+//    private void compressVideo(String inputFilePath, String outputFilePath) {
+//        String command = "-i " + inputFilePath + " -c:v mpeg4  -b:v 500k -vf scale=640:-2 -r 5 " + outputFilePath;
+//        Log.d("FFmpegCommand", "Command: " + command);
+//        FFmpegKit.executeAsync(command, session -> {
+//            if (session.getReturnCode().isValueSuccess()) {
+//                File originalFile = new File(inputFilePath);
+//                if (originalFile.exists()) {
+//                    boolean isDeleted = originalFile.delete();
+//                    if (isDeleted) {
+//                        Log.d("VideoCompression", "Original video deleted successfully.");
+//                    } else {
+//                        Log.e("VideoCompression", "Failed to delete the original video.");
+//                    }
+//                }
+//                // 切换到主线程显示成功消息
+//                requireActivity().runOnUiThread(() -> {
+//                    Toast.makeText(requireContext(), "Video compression succeeded!", Toast.LENGTH_SHORT).show();
+//                });
+//
+//            } else {
+//                // 切换到主线程显示失败消息
+//                String errorLog = session.getOutput();
+//                Log.e("FFmpegError", "Command failed: " + errorLog);
+//                requireActivity().runOnUiThread(() ->
+//                        Toast.makeText(requireContext(), "Video compression failed: " + errorLog, Toast.LENGTH_SHORT).show()
+//                );
+//            }
+//        });
+//    }
 
     private String getFilePathFromUri(Uri uri) {
         String filePath = null;
@@ -1189,6 +1232,13 @@ public class FirstFragment extends Fragment {
                     GET_RECODE_AUDIO);
         }
     }
+    // Helper function to get the asset file path
+    // Helper function to get the asset file path
+    // Helper function to get the asset file path for loading models
+
+
+    // Helper function to get the resource ID dynamically based on asset name
+
 
     private class LuminosityAnalyzer implements ImageAnalysis.Analyzer {
 

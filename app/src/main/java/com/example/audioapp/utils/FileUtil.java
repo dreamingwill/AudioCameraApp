@@ -37,7 +37,8 @@ public class FileUtil {
         return getFileAbsolutePath("pcm", fileName);
     }
     public static String getVideoFileAbsolutePath(String fileName) {
-        return getFileAbsolutePath("mp4", fileName);
+        return Environment.getExternalStorageDirectory().getAbsolutePath() + "/Movies/" + fileName + ".mp4";
+        //return getFileAbsolutePath("mp4", fileName);
     }
 
     public static String getScreenVideoFileAbsolutePath(String fileName) {

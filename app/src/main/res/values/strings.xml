@@ -9,10 +9,12 @@
     <string name="hello_first_fragment">Accelaration：</string>
     <string name="hello_second_fragment">Hello second fragment. Arg: %1$s</string>
 
-    <string name="take_photo">Take Photo</string>
+    <string name="take_photo">Take Photos</string>
     <string name="start_capture">Video rec</string>
     <string name="stop_capture">stop video rec</string>
-    <string name="collect_data">Collect Data for 6sec</string>
+    <string name="collect_data">Collect Data 15 times</string>
     <string name="front_recording_button">signal</string>
+    <string name="predict_string">predict</string>
+    <string name="monitor">monitor</string>
 
 </resources>

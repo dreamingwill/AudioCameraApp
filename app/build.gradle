@@ -1,5 +1,12 @@
+
 plugins {
     id 'com.android.application'
+}
+// 读取 local.properties
+def localProperties = new Properties()
+def localFile = rootProject.file("local.properties")
+if (localFile.exists()) {
+    localProperties.load(new FileInputStream(localFile))
 }
 
 android {
@@ -12,20 +19,24 @@ android {
         //noinspection ExpiredTargetSdkVersion
         targetSdkVersion 31
         versionCode 1
-        versionName "1.1"
+        versionName "1.2"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         lintOptions {
             abortOnError false
             checkReleaseBuilds false
         }
+        buildConfigField "String", "OPENAI_API_KEY", "\"${localProperties.getProperty("OPENAI_API_KEY")}\""
+
     }
 
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+
         }
+
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -33,6 +44,13 @@ android {
     }
     buildFeatures {
         viewBinding true
+    }
+    packagingOptions {
+        // 覆盖所有架构的 libc++_shared.so
+        pickFirst 'lib/arm64-v8a/libc++_shared.so'
+        pickFirst 'lib/armeabi-v7a/libc++_shared.so'
+        pickFirst 'lib/x86/libc++_shared.so'
+        pickFirst 'lib/x86_64/libc++_shared.so'
     }
 
 }
@@ -56,12 +74,15 @@ dependencies {
 
     implementation "androidx.camera:camera-view:${camerax_version}"
     implementation "androidx.camera:camera-extensions:${camerax_version}"
+    implementation 'com.google.android.material:material:latest_version'
 
-    implementation 'com.arthenica:ffmpeg-kit-full:5.1'
-
+    //implementation 'com.arthenica:ffmpeg-kit-full:6.0-2.LTS'
     // Activity Result API
     //implementation 'androidx.activity:activity-ktx:1.7.0'   // 或者适用于你的项目的版本
     //implementation 'androidx.activity:activity:1.7.0'  // 如果没有 kt 文件
+    implementation 'org.pytorch:pytorch_android:2.1.0'
+    implementation 'org.pytorch:pytorch_android_torchvision:2.1.0'
+    implementation 'com.squareup.okhttp3:okhttp:4.10.0'
 
     implementation files('libs/super-csv-2.4.0.jar')
     testImplementation 'junit:junit:4.13.2'

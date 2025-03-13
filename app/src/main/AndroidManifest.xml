@@ -9,6 +9,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.INTERNET" />
 <!--    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>-->
 
 
@@ -46,6 +47,18 @@
             android:name=".ScreenRecordingService"
             android:permission="android.permission.FOREGROUND_SERVICE"
             android:foregroundServiceType="mediaProjection"/>
+        <service
+            android:name=".EmotionMonitoringService"
+            android:permission="android.permission.FOREGROUND_SERVICE"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection|camera|microphone"/>
+        <service
+            android:name=".MediaPlayerService"
+            android:permission="android.permission.FOREGROUND_SERVICE"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection|camera|microphone"/>
     </application>
 
 </manifest>
