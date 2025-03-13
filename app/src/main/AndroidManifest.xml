@@ -38,23 +38,23 @@
             android:name=".ListActivity"
             android:theme="@style/Theme.AudioApp.NoActionBar" />
         <service
-            android:name=".VideoRecordingService"
+            android:name=".services.VideoRecordingService"
             android:permission="android.permission.FOREGROUND_SERVICE"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="mediaProjection|camera|microphone" />
         <service
-            android:name=".ScreenRecordingService"
+            android:name=".services.ScreenRecordingService"
             android:permission="android.permission.FOREGROUND_SERVICE"
             android:foregroundServiceType="mediaProjection"/>
         <service
-            android:name=".EmotionMonitoringService"
+            android:name=".services.EmotionMonitoringService"
             android:permission="android.permission.FOREGROUND_SERVICE"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="mediaProjection|camera|microphone"/>
         <service
-            android:name=".MediaPlayerService"
+            android:name=".services.MediaPlayerService"
             android:permission="android.permission.FOREGROUND_SERVICE"
             android:enabled="true"
             android:exported="false"

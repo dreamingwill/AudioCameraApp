@@ -64,6 +64,8 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.0.4'
     implementation 'androidx.navigation:navigation-fragment:2.3.5'
     implementation 'androidx.navigation:navigation-ui:2.3.5'
+    implementation 'com.google.mlkit:vision-common:17.3.0'
+    implementation 'com.google.android.gms:play-services-mlkit-face-detection:17.1.0'
 
     // CameraX core library using the camera2 implementation
     def camerax_version = "1.1.0-beta01"
@@ -83,6 +85,11 @@ dependencies {
     implementation 'org.pytorch:pytorch_android:2.1.0'
     implementation 'org.pytorch:pytorch_android_torchvision:2.1.0'
     implementation 'com.squareup.okhttp3:okhttp:4.10.0'
+
+    // ML Kit 人脸检测依赖
+    implementation 'com.google.mlkit:face-detection:16.1.5'
+    // Google Play 服务任务库，用于 Tasks.await()
+    //implementation 'com.google.android.gms:play-services-tasks:17.2.1'
 
     implementation files('libs/super-csv-2.4.0.jar')
     testImplementation 'junit:junit:4.13.2'

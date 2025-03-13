@@ -1,4 +1,4 @@
-package com.example.audioapp;
+package com.example.audioapp.services;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -13,6 +13,9 @@ import android.os.IBinder;
 import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
+
+import com.example.audioapp.MainActivity;
+import com.example.audioapp.R;
 
 import java.io.IOException;
 

@@ -9,7 +9,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.database.Cursor;
 import android.graphics.BitmapFactory;
@@ -41,24 +40,23 @@ import android.os.Handler;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.ImageProxy;
 import androidx.camera.video.FallbackStrategy;
-import androidx.camera.video.MediaStoreOutputOptions;
-import androidx.camera.video.PendingRecording;
 import androidx.camera.video.Quality;
 import androidx.camera.video.QualitySelector;
-import androidx.camera.video.VideoRecordEvent;
 import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
-import androidx.core.content.PermissionChecker;
 import androidx.fragment.app.Fragment;
 import android.graphics.Bitmap;
 
 
 import com.example.audioapp.entity.SensorData;
+import com.example.audioapp.services.EmotionMonitoringService;
+import com.example.audioapp.services.MediaPlayerService;
+import com.example.audioapp.services.ScreenRecordingService;
+import com.example.audioapp.services.VideoRecordingService;
 import com.example.audioapp.utils.AudioRecorder;
 import com.example.audioapp.utils.FileUtil;
 
@@ -86,6 +84,7 @@ import androidx.camera.video.Recording;
 import androidx.camera.video.VideoCapture;
 import androidx.core.content.ContextCompat;
 import com.example.audioapp.databinding.FragmentFirstBinding;
+import com.example.audioapp.utils.ModelLoader;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.concurrent.ExecutorService;
@@ -94,9 +93,6 @@ import java.util.concurrent.Executors;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.core.Preview;
 import androidx.camera.core.CameraSelector;
-
-
-import org.pytorch.Module;
 
 //@RequiresApi(api = Build.VERSION_CODES.KITKAT)
 public class FirstFragment extends Fragment {

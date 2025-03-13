@@ -1,7 +1,8 @@
-package com.example.audioapp;
+package com.example.audioapp.services;
 
-import static java.security.AccessController.getContext;
-
+import com.example.audioapp.utils.FaceDetectorHelper;
+import com.example.audioapp.utils.ModelLoader;
+import com.example.audioapp.R;
 import com.example.audioapp.entity.CapturedData;
 
 import android.app.Activity;
@@ -14,7 +15,6 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
-import android.graphics.PixelFormat;
 import android.hardware.HardwareBuffer;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
@@ -54,7 +54,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
@@ -304,101 +303,94 @@ public class EmotionMonitoringService extends Service {
                         // 将 ImageProxy 转换为 Bitmap
                         Bitmap cameraBitmap = imageProxyToBitmap(image);
                         image.close();
+
                         if (cameraBitmap == null) {
                             Log.e(TAG, "captureAndProcess: cameraBitmap conversion failed");
                             return;
                         }
-                        // 使用全局最新截图，不再重新调用 acquireLatestImage()
-                        Bitmap screenBitmap = latestScreenBitmap;
-                        if (screenBitmap == null) {
-                            Log.d(TAG, "onCaptureSuccess: latestScreenBitmap is null");
-                        }
-                        // 调用模型进行推理，得到 V-A 值
-                        // module 为你加载好的 torch 模型实例
-                        float[] avValues = modelLoader.runModel(cameraBitmap);
-                        long timestamp = System.currentTimeMillis();
+                        FaceDetectorHelper.cropFaceFromBitmap(getApplicationContext(), cameraBitmap, new FaceDetectorHelper.FaceDetectionCallback() {
+                            @Override
+                            public void onFaceDetected(@Nullable Bitmap faceBitmap) {
+                                if (faceBitmap == null) {
+                                    // 没有检测到人脸，则不进行模型推理
+                                    Log.d(TAG, "No face detected, skipping model inference.");
+                                } else {
+                                    // 检测到人脸，继续后续处理，比如调用模型进行推理
+                                    float[] avValues = modelLoader.runModel(faceBitmap);
+                                    long timestamp = System.currentTimeMillis();
+                                    // 存储结果到缓冲区，或者执行其他操作
+                                    Log.d(TAG, "Face detected, proceeding with model inference.");
+                                    // 使用全局最新截图，不再重新调用 acquireLatestImage()
+                                    Bitmap screenBitmap = latestScreenBitmap;
+                                    if (screenBitmap == null) {
+                                        Log.d(TAG, "onCaptureSuccess: latestScreenBitmap is null");
+                                    }
+                                    // 将数据存入缓冲区，保证缓冲区最多保存最近 BUFFER_SIZE 条记录
+                                    synchronized (captureBuffer) {
+                                        if (captureBuffer.size() >= BUFFER_SIZE) {
+                                            captureBuffer.remove(0);
+                                        }
+                                        captureBuffer.add(new CapturedData(faceBitmap,screenBitmap ,avValues, timestamp));
+                                    }
+                                    Log.d(TAG, "captureAndProcess: Captured image at " + timestamp + " with AV: " +
+                                            avValues[0] + ", " + avValues[1]);
+                                    // 检测是否存在异常（例如：v）
 
-                        // 将数据存入缓冲区，保证缓冲区最多保存最近 BUFFER_SIZE 条记录
-                        synchronized (captureBuffer) {
-                            if (captureBuffer.size() >= BUFFER_SIZE) {
-                                captureBuffer.remove(0);
-                            }
-                            captureBuffer.add(new CapturedData(cameraBitmap,screenBitmap ,avValues, timestamp));
-                        }
-                        Log.d(TAG, "captureAndProcess: Captured image at " + timestamp + " with AV: " +
-                                avValues[0] + ", " + avValues[1]);
+                                    if (isNegativeAbnormal(captureBuffer)) {
+                                        long currentTime = System.currentTimeMillis();
+                                        if (currentTime - lastAbnormalTime >= ABNORMAL_COOLDOWN_MS) {
+                                            lastAbnormalTime = currentTime;
+                                            Log.d(TAG, "captureAndProcess: Negative emotion detected!");
+                                            saveAbnormalData();
+                                            Toast.makeText(getApplicationContext(), "检测到负面情绪异常", Toast.LENGTH_SHORT).show();
+                                            // 在检测异常的地方调用（例如在 captureAndProcess() 中）：
+                                            String abnormalInfo = "Valence: " + avValues[0] + ", Arousal: " + avValues[1] + " at timestamp " + timestamp;
+                                            // ChatGpt
+                                            ChatGptHelper chatGptHelper = new ChatGptHelper();
+                                            chatGptHelper.getInterventionResponse(
+                                                    captureBuffer.get(captureBuffer.size()-1),
+                                                    new ChatGptHelper.ChatGptCallback() {
+                                                        @Override
+                                                        public void onSuccess(String reply) {
+                                                            // 在主线程中更新 UI，可使用 Handler 切换
+                                                            new Handler(Looper.getMainLooper()).post(() -> {
+                                                                Toast.makeText(getApplicationContext(),  reply, Toast.LENGTH_LONG).show();
+                                                                Log.d(TAG, "onSuccess: ChatGPT: " + reply);
+                                                                // 构建通知
+                                                                NotificationCompat.Builder builder = new NotificationCompat.Builder(getApplicationContext(), "chatgpt_reply_channel")
+                                                                        .setContentTitle("ChatGPT 回复")
+                                                                        .setContentText(reply)
+                                                                        .setSmallIcon(R.drawable.ic_launcher_background)
+                                                                        .setStyle(new NotificationCompat.BigTextStyle().bigText(reply)) // 展开显示完整内容
+                                                                        .setPriority(NotificationCompat.PRIORITY_MAX) // 最高优先级
+                                                                        .setAutoCancel(true); // 点击后自动消失
 
-                        // 检测是否存在异常（例如：v）
-
-                        if (isNegativeAbnormal(captureBuffer)) {
-                            long currentTime = System.currentTimeMillis();
-                            if (currentTime - lastAbnormalTime >= ABNORMAL_COOLDOWN_MS) {
-                                lastAbnormalTime = currentTime;
-                                Log.d(TAG, "captureAndProcess: Negative emotion detected!");
-                                saveAbnormalData();
-                                Toast.makeText(getApplicationContext(), "检测到负面情绪异常", Toast.LENGTH_SHORT).show();
-                                // 在检测异常的地方调用（例如在 captureAndProcess() 中）：
-                                String abnormalInfo = "Valence: " + avValues[0] + ", Arousal: " + avValues[1] + " at timestamp " + timestamp;
-                                // ChatGpt
-                                ChatGptHelper chatGptHelper = new ChatGptHelper();
-                                chatGptHelper.getInterventionResponse(
-                                        captureBuffer.get(captureBuffer.size()-1),
-                                        new ChatGptHelper.ChatGptCallback() {
-                                            @Override
-                                            public void onSuccess(String reply) {
-                                                // 在主线程中更新 UI，可使用 Handler 切换
-                                                new Handler(Looper.getMainLooper()).post(() -> {
-                                                    Toast.makeText(getApplicationContext(),  reply, Toast.LENGTH_LONG).show();
-                                                    Log.d(TAG, "onSuccess: ChatGPT: " + reply);
-                                                    // 构建通知
-                                                    NotificationCompat.Builder builder = new NotificationCompat.Builder(getApplicationContext(), "chatgpt_reply_channel")
-                                                            .setContentTitle("ChatGPT 回复")
-                                                            .setContentText(reply)
-                                                            .setSmallIcon(R.drawable.ic_launcher_background)
-                                                            .setStyle(new NotificationCompat.BigTextStyle().bigText(reply)) // 展开显示完整内容
-                                                            .setPriority(NotificationCompat.PRIORITY_MAX) // 最高优先级
-                                                            .setAutoCancel(true); // 点击后自动消失
-
-                                                    // 发送通知
-                                                    NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-                                                    if (manager != null) {
-                                                        int notificationId = (int) System.currentTimeMillis(); // 生成唯一 ID
-                                                        manager.notify(notificationId, builder.build());
-                                                    }
+                                                                // 发送通知
+                                                                NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+                                                                if (manager != null) {
+                                                                    int notificationId = (int) System.currentTimeMillis(); // 生成唯一 ID
+                                                                    manager.notify(notificationId, builder.build());
+                                                                }
 
 //                                                    Log.d(TAG, "onSuccess: "+"ChatGPT: " + reply);
-                                                });
-                                            }
-                                            @Override
-                                            public void onFailure(String error) {
-                                                new Handler(Looper.getMainLooper()).post(() -> {
-                                                Toast.makeText(getApplicationContext(), "Failed to get response: " + error, Toast.LENGTH_SHORT).show();
-                                                Log.e(TAG, "onFailure: Failed to get response:" + error );
-                                                });
-                                            }
+                                                            });
+                                                        }
+                                                        @Override
+                                                        public void onFailure(String error) {
+                                                            new Handler(Looper.getMainLooper()).post(() -> {
+                                                                Toast.makeText(getApplicationContext(), "Failed to get response: " + error, Toast.LENGTH_SHORT).show();
+                                                                Log.e(TAG, "onFailure: Failed to get response:" + error );
+                                                            });
+                                                        }
+                                                    }
+                                            );
                                         }
-                                );
+                                    }
 
-
-//                                chatGptHelper.getSoothingResponse(abnormalInfo, new ChatGptHelper.ChatGptCallback() {
-//                                    @Override
-//                                    public void onSuccess(String reply) {
-//                                        // 这里在主线程中更新 UI 或通知玩家
-//                                        new Handler(Looper.getMainLooper()).post(() -> {
-//                                            Toast.makeText(getApplicationContext(), "ChatGPT: " + reply, Toast.LENGTH_LONG).show();
-//                                        });
-//                                    }
-//
-//                                    @Override
-//                                    public void onFailure(String error) {
-//                                        new Handler(Looper.getMainLooper()).post(() -> {
-//                                            Toast.makeText(getApplicationContext(), "Failed to get response: " + error, Toast.LENGTH_SHORT).show();
-//                                            Log.e(TAG, "onFailure: Failed to get response:" + error );
-//                                        });
-//                                    }
-//                                });
+                                }
                             }
-                        }
+                        });
+
                     }
 
                     @Override
@@ -512,7 +504,8 @@ public class EmotionMonitoringService extends Service {
 
             synchronized (captureBuffer) {
                 for (CapturedData data : captureBuffer) {
-                    String camFileName = "CAM_" + data.timestamp + ".jpg";
+                    String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss_SSS").format(new Date(data.timestamp));
+                    String camFileName = "CAM_" + timestamp + ".jpg";
                     String scrFileName = "NA";
                     File camFile = new File(dir, camFileName);
                     try (FileOutputStream camOut = new FileOutputStream(camFile)) {
@@ -520,7 +513,7 @@ public class EmotionMonitoringService extends Service {
                     }
                     // 如果屏幕截图存在，也保存
                     if (data.screenBitmap != null) {
-                        scrFileName = "SCR_" + data.timestamp + ".jpg";
+                        scrFileName = "SCR_" + timestamp + ".jpg";
                         File scrFile = new File(dir, scrFileName);
                         try (FileOutputStream scrOut = new FileOutputStream(scrFile)) {
                             data.screenBitmap.compress(Bitmap.CompressFormat.JPEG, 40, scrOut);

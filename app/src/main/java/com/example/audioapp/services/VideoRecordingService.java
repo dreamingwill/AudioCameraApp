@@ -1,5 +1,4 @@
-package com.example.audioapp;
-import static androidx.camera.core.CameraXThreads.TAG;
+package com.example.audioapp.services;
 
 import android.Manifest;
 import android.app.Notification;
@@ -44,15 +43,9 @@ import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 
-import com.example.audioapp.utils.FileUtil;
+import com.example.audioapp.MainActivity;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.concurrent.ExecutorService;
