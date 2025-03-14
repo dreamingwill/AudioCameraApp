@@ -2,14 +2,20 @@ package com.example.audioapp.utils;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.PointF;
 import android.graphics.Rect;
+import android.util.Log;
+
 import androidx.annotation.Nullable;
 
+import com.google.mlkit.vision.face.FaceContour;
+import com.google.mlkit.vision.face.FaceLandmark;
 import com.google.mlkit.vision.common.InputImage;
 import com.google.mlkit.vision.face.Face;
 import com.google.mlkit.vision.face.FaceDetection;
 import com.google.mlkit.vision.face.FaceDetector;
 import com.google.mlkit.vision.face.FaceDetectorOptions;
+
 
 import java.util.List;
 
@@ -23,6 +29,13 @@ public class FaceDetectorHelper {
      * @param bitmap   要检测的 Bitmap
      * @param callback 回调接口，返回裁剪后的人脸 Bitmap 或 null
      */
+    private static final String TAG = "FaceDetectorHelper";
+    // 期望的关键点数量
+    private static final int EXPECTED_KEYPOINTS = 6;
+    // 检测比例阈值，例如80%
+    private static final double DETECTION_RATIO_THRESHOLD = 0.8;
+
+    private static final int REQUIRED_VALID_POINTS = 8;
     public static void cropFaceFromBitmap(Context context, Bitmap bitmap, FaceDetectionCallback callback) {
         // 配置人脸检测选项，这里采用快速模式
         FaceDetectorOptions options = new FaceDetectorOptions.Builder()
@@ -34,9 +47,11 @@ public class FaceDetectorHelper {
 
         detector.process(image)
                 .addOnSuccessListener(faces -> {
+
                     if (faces != null && !faces.isEmpty()) {
+                        Face face = faces.get(0);
                         // 获取第一张人脸的边界框
-                        Rect bounds = faces.get(0).getBoundingBox();
+                        Rect bounds = face.getBoundingBox();
                         // 修正边界，确保不会超出 Bitmap 范围
                         int left = Math.max(0, bounds.left);
                         int top = Math.max(0, bounds.top);
@@ -45,14 +60,77 @@ public class FaceDetectorHelper {
                         // 裁剪人脸区域
                         Bitmap faceBitmap = Bitmap.createBitmap(bitmap, left, top, right - left, bottom - top);
                         callback.onFaceDetected(faceBitmap);
+
+
                     } else {
                         callback.onFaceDetected(null);
+                        Log.d(TAG, "cropFaceFromBitmap: faces.isEmpty()");
                     }
                 })
                 .addOnFailureListener(e -> {
                     e.printStackTrace();
                     callback.onFaceDetected(null);
                 });
+    }
+
+    // 计算遮挡分数的具体方法
+    private static boolean isFaceOccluded(Face face) {
+        // 获取所有面部关键点（包含68个标准点）
+        List<FaceLandmark> landmarks = face.getAllLandmarks();
+
+        // 需要重点监测的核心关键点类型
+        int[] crucialLandmarks = {
+                FaceLandmark.LEFT_EYE,
+                FaceLandmark.RIGHT_EYE,
+                FaceLandmark.NOSE_BASE,
+                FaceLandmark.MOUTH_LEFT,
+                FaceLandmark.MOUTH_RIGHT
+        };
+
+        // 双重验证策略：总有效点 + 核心关键点
+        return !hasEnoughValidPoints(landmarks) || missingCrucialPoints(face, crucialLandmarks);
+    }
+
+    // 验证有效关键点数量
+    private static boolean hasEnoughValidPoints(List<FaceLandmark> landmarks) {
+        int validCount = 0;
+        for (FaceLandmark landmark : landmarks) {
+            // 验证关键点有效性的三个条件
+            if (landmark != null) {
+                validCount++;
+            }
+        }
+        Log.d(TAG, "Valid landmarks: " + validCount);
+        return validCount >= REQUIRED_VALID_POINTS;
+    }
+
+    // 检查核心关键点是否缺失
+    private static boolean missingCrucialPoints(Face face, int[] crucialTypes) {
+        for (int type : crucialTypes) {
+            FaceLandmark landmark = face.getLandmark(type);
+            assert landmark != null;
+            Log.d(TAG, "missingCrucialPoints: "+ landmark);
+            if (landmark == null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isFaceOccluded_2(Face face) {
+        int detectedKeyPoints = 0;
+        // 取出关键点
+        if (face.getLandmark(FaceLandmark.LEFT_EYE) != null) detectedKeyPoints++;
+        if (face.getLandmark(FaceLandmark.RIGHT_EYE) != null) detectedKeyPoints++;
+        if (face.getLandmark(FaceLandmark.NOSE_BASE) != null) detectedKeyPoints++;
+        if (face.getLandmark(FaceLandmark.MOUTH_BOTTOM) != null) detectedKeyPoints++;
+        if (face.getLandmark(FaceLandmark.MOUTH_LEFT) != null) detectedKeyPoints++;
+        if (face.getLandmark(FaceLandmark.MOUTH_RIGHT) != null) detectedKeyPoints++;
+
+        double ratio = (double) detectedKeyPoints / EXPECTED_KEYPOINTS;
+
+        // 仅根据数量判断
+        return ratio < DETECTION_RATIO_THRESHOLD;  // 被遮挡
     }
 
     // 回调接口，用于返回检测结果

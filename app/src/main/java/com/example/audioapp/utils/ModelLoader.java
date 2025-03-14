@@ -22,7 +22,7 @@ public class ModelLoader {
     private static final float[] NORM_MEAN = {0.485f, 0.456f, 0.406f};
     private static final float[] NORM_STD = {0.229f, 0.224f, 0.225f};
     public static final String modelPath = "lc_best.pt";
-    public static final String exampleImgPath = "happy3.png";
+    public static final String exampleImgPath = "mask.jpg";
     private static Module module;
     private Bitmap exampleBitmap = null;
 
@@ -51,6 +51,7 @@ public class ModelLoader {
 
     // 运行模型
     public float[] runModel(Bitmap inputBitmap) {
+
         if (module == null) {
             throw new IllegalStateException("模型未成功加载");
         }
@@ -70,6 +71,7 @@ public class ModelLoader {
         // 5. 获取输出结果
         return outputTensor.getDataAsFloatArray();
     }
+
 
     public Bitmap getExampleBitmap() {
         return exampleBitmap;

@@ -106,6 +106,7 @@ public class EmotionMonitoringService extends Service {
     private ModelLoader modelLoader;
     // 全局变量存储最新截图
     private volatile Bitmap latestScreenBitmap = null;
+    private long lastScreenshotTimestamp = 0;
 
     @Override
     public void onCreate() {
@@ -262,23 +263,30 @@ public class EmotionMonitoringService extends Service {
                         DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
                         imageReader.getSurface(), null, null);
                 // 设置监听器更新全局最新截图
-                imageReader.setOnImageAvailableListener(reader -> {
-                    Image image = reader.acquireLatestImage();
-                    if (image != null) {
-                        // 将 image 转为 Bitmap
-                        Bitmap newBitmap = null;
-                        HardwareBuffer buffer = image.getHardwareBuffer();
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && buffer != null) {
-                            newBitmap = Bitmap.wrapHardwareBuffer(buffer, null);
-                        }
-                        image.close();
-                        if (newBitmap != null) {
-                            latestScreenBitmap = newBitmap;
-
-                            Log.d(TAG, "New screenshot updated");
-                        }
-                    }
-                }, new Handler(Looper.getMainLooper()));
+//                imageReader.setOnImageAvailableListener(reader -> {
+//                    Image image = reader.acquireLatestImage();
+//                    if (image != null) {
+//                        long currentTime = System.currentTimeMillis();
+//                        // 如果上次更新截图距离当前不足1秒，则直接关闭image
+//                        if (currentTime - lastScreenshotTimestamp < 1000) {
+//                            image.close();
+//                            return;
+//                        }
+//                        lastScreenshotTimestamp = currentTime;
+//
+//                        // 将 image 转为 Bitmap
+//                        Bitmap newBitmap = null;
+//                        HardwareBuffer buffer = image.getHardwareBuffer();
+//                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && buffer != null) {
+//                            newBitmap = Bitmap.wrapHardwareBuffer(buffer, null);
+//                        }
+//                        image.close();
+//                        if (newBitmap != null) {
+//                            latestScreenBitmap = newBitmap;
+//                            Log.d(TAG, "New screenshot updated at " + currentTime);
+//                        }
+//                    }
+//                }, new Handler(Looper.getMainLooper()));
 
                 Log.d(TAG, "initMediaProjection: MediaProjection initialized successfully");
             } else {
@@ -295,6 +303,7 @@ public class EmotionMonitoringService extends Service {
             Log.e(TAG, "captureAndProcess: imageCapture is null");
             return;
         }
+        Bitmap cameraBitmap;
 
         imageCapture.takePicture(ContextCompat.getMainExecutor(this),
                 new ImageCapture.OnImageCapturedCallback() {
@@ -321,8 +330,11 @@ public class EmotionMonitoringService extends Service {
                                     // 存储结果到缓冲区，或者执行其他操作
                                     Log.d(TAG, "Face detected, proceeding with model inference.");
                                     // 使用全局最新截图，不再重新调用 acquireLatestImage()
+                                    captureScreenManually();//
                                     Bitmap screenBitmap = latestScreenBitmap;
-                                    if (screenBitmap == null) {
+                                    if (screenBitmap != null) {
+                                        screenBitmap = screenBitmap.copy(screenBitmap.getConfig(), false);
+                                    } else {
                                         Log.d(TAG, "onCaptureSuccess: latestScreenBitmap is null");
                                     }
                                     // 将数据存入缓冲区，保证缓冲区最多保存最近 BUFFER_SIZE 条记录
@@ -358,7 +370,7 @@ public class EmotionMonitoringService extends Service {
                                                                 Log.d(TAG, "onSuccess: ChatGPT: " + reply);
                                                                 // 构建通知
                                                                 NotificationCompat.Builder builder = new NotificationCompat.Builder(getApplicationContext(), "chatgpt_reply_channel")
-                                                                        .setContentTitle("ChatGPT 回复")
+                                                                        .setContentTitle("ChatGPT回复")
                                                                         .setContentText(reply)
                                                                         .setSmallIcon(R.drawable.ic_launcher_background)
                                                                         .setStyle(new NotificationCompat.BigTextStyle().bigText(reply)) // 展开显示完整内容
@@ -398,6 +410,7 @@ public class EmotionMonitoringService extends Service {
                         Log.e(TAG, "captureAndProcess: Error capturing image: " + exception.getMessage());
                     }
                 });
+
     }
 
     // 捕获屏幕截图：使用 ImageReader 获取最新的 Image 并转换为 Bitmap
@@ -547,6 +560,24 @@ public class EmotionMonitoringService extends Service {
         } else {
             Log.e(TAG, "Unsupported image format: " + image.getFormat());
             return null;
+        }
+    }
+
+    private void captureScreenManually() {
+        if (imageReader != null) {
+            Image image = imageReader.acquireLatestImage();
+            if (image != null) {
+                Bitmap newBitmap = null;
+                HardwareBuffer buffer = image.getHardwareBuffer();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && buffer != null) {
+                    newBitmap = Bitmap.wrapHardwareBuffer(buffer, null);
+                }
+                image.close();
+                if (newBitmap != null) {
+                    latestScreenBitmap = newBitmap;
+                    Log.d(TAG, "Manually captured new screenshot");
+                }
+            }
         }
     }
 

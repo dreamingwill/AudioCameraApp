@@ -40,6 +40,7 @@ import android.os.Handler;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.ImageProxy;
@@ -58,6 +59,7 @@ import com.example.audioapp.services.MediaPlayerService;
 import com.example.audioapp.services.ScreenRecordingService;
 import com.example.audioapp.services.VideoRecordingService;
 import com.example.audioapp.utils.AudioRecorder;
+import com.example.audioapp.utils.FaceDetectorHelper;
 import com.example.audioapp.utils.FileUtil;
 
 import org.supercsv.cellprocessor.constraint.NotNull;
@@ -883,6 +885,17 @@ public class FirstFragment extends Fragment {
                     System.out.printf("模型 %s 的预测图片 %s 结果 -> a: %.4f, v: %.4f, 耗时: %d ms%n", ModelLoader.modelPath, ModelLoader.exampleImgPath, output[0], output[1], duration);
                     Log.d(TAG, "onClick: a:" + output[0] + " , v:" + output[1] + ", 耗时: " + duration + " ms");
                     motionText.setText("a: " + output[0] + " , v " + output[1] + ", \n耗时: " + duration + " ms");
+
+                    FaceDetectorHelper.cropFaceFromBitmap(getContext(), modelLoader.getExampleBitmap(), new FaceDetectorHelper.FaceDetectionCallback() {
+                        @Override
+                        public void onFaceDetected(@Nullable Bitmap faceBitmap) {
+                            if (faceBitmap == null) {
+                                // 没有检测到人脸，则不进行模型推理
+                                Log.d(TAG, "No face detected, skipping model inference.");
+                            }else {
+                                Log.d(TAG, "face detected, to do ...");
+                            }
+                        }});
                 }
 
 
