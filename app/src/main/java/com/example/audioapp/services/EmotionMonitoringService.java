@@ -1,5 +1,7 @@
 package com.example.audioapp.services;
 
+import com.example.audioapp.entity.GlobalHistory;
+import com.example.audioapp.utils.BaselineCalculator;
 import com.example.audioapp.utils.FaceDetectorHelper;
 import com.example.audioapp.utils.ModelLoader;
 import com.example.audioapp.R;
@@ -69,14 +71,22 @@ import java.util.concurrent.TimeUnit;
 public class EmotionMonitoringService extends Service {
     private static final String TAG = "EmotionMonitoringService";
     private static final int NOTIFICATION_ID = 2;
-    private static final int BUFFER_SIZE = 30;  // 保存最近30张照片
 
     // 定义一些阈值和最小采样数量
-    private static final int MIN_SAMPLES = 20; // 至少20个再记录
+    private static final int WINDOW_SAMPLES_NUM = 5; // 窗口长度5条数据
+    private static final int HISTORY_LEAST_SAMPLES_NUM = 100; // 至少300个历史数据再记录
     private static final long WINDOW_DURATION_MS = 10_000; // 10秒
     private static final int MIN_RECENT_SAMPLES = 3;        // 至少需要3个采样点
     private static final float AROUSAL_STD_THRESHOLD = 0.12f; // 激活度标准差阈值
     private static final float VALENCE_STD_THRESHOLD = 0.12f; // 情绪价值标准差阈值
+
+    private static final float AROUSAL_Z_SCORE_THRESHOLD = 1.5f; // 激活度标准差阈值
+    private static final float VALENCE_Z_SCORE_THRESHOLD = 1.5f; // 情绪价值标准差阈值
+
+    private static final float NEGATIVE_RATIO_THRESHOLD = 0.5f; // 窗口中负面采样占比阈值
+
+    private static final float ANGER_VALENCE_THRESHOLD = -0.2f;
+    private static final float ANGER_AROUSAL_THRESHOLD = 0.6f;
 
     private ImageCapture imageCapture;
     private ProcessCameraProvider cameraProvider;
@@ -339,13 +349,17 @@ public class EmotionMonitoringService extends Service {
                                     }
                                     // 将数据存入缓冲区，保证缓冲区最多保存最近 BUFFER_SIZE 条记录
                                     synchronized (captureBuffer) {
-                                        if (captureBuffer.size() >= BUFFER_SIZE) {
+                                        if (captureBuffer.size() >= WINDOW_SAMPLES_NUM) {
                                             captureBuffer.remove(0);
                                         }
                                         captureBuffer.add(new CapturedData(faceBitmap,screenBitmap ,avValues, timestamp));
                                     }
                                     Log.d(TAG, "captureAndProcess: Captured image at " + timestamp + " with AV: " +
                                             avValues[0] + ", " + avValues[1]);
+
+                                    // 同步更新到全局历史
+                                    GlobalHistory.updateGlobalHistory(new CapturedData(avValues, timestamp));
+
                                     // 检测是否存在异常（例如：v）
 
                                     if (isNegativeAbnormal(captureBuffer)) {
@@ -437,13 +451,80 @@ public class EmotionMonitoringService extends Service {
     }
 
 
+
+    private boolean isNegativeAbnormal(List<CapturedData> captureBuffer) {
+        if (captureBuffer.size() < WINDOW_SAMPLES_NUM) {
+            // 数据不足
+            return false;
+        }
+
+        // Step 1: 获取全局历史
+        List<CapturedData> globalHistory = GlobalHistory.getGlobalVAList();
+        if(globalHistory.size() < HISTORY_LEAST_SAMPLES_NUM){
+            return false;
+        }
+        // Step 2: 计算基线
+        BaselineCalculator.BaselineStats baseline = BaselineCalculator.computeBaseline(globalHistory);
+
+        int total = captureBuffer.size();
+        int negativeCount = 0;
+        int maxConsecutiveNegative = 0;
+        int currentConsecutive = 0;
+
+        // Step 3: 判断短期窗口是否偏离基线
+        float sumArousal = 0, sumValence = 0;
+        for (CapturedData data : captureBuffer) {
+            float arousal = data.avValues[0];  // 唤醒度
+            float valence = data.avValues[1];  // 愉悦程度
+            // 计算平均
+            sumArousal += data.avValues[0];
+            sumValence += data.avValues[1];
+            // 定义负面情绪判断（这里以愤怒为例，你可以扩展更多情绪的判断）
+            boolean isAngry = (valence < ANGER_VALENCE_THRESHOLD && arousal > ANGER_AROUSAL_THRESHOLD);
+            boolean isSad = (valence < -0.5 && arousal < -0.2);
+
+            boolean isNegative = isAngry|| isSad;
+            if (isNegative) {
+                negativeCount++;
+                currentConsecutive++;
+                if (currentConsecutive > maxConsecutiveNegative) {
+                    maxConsecutiveNegative = currentConsecutive;
+                }
+            } else {
+                currentConsecutive = 0;
+            }
+        }
+        float avgArousal = sumArousal / captureBuffer.size();
+        float avgValence = sumValence / captureBuffer.size();
+
+        // Step 3.1 判断与基线的差异（Z-score 或差值）
+        float zArousal = (avgArousal - baseline.avgArousal) / (baseline.stdArousal + 1e-5f);
+        float zValence = (avgValence - baseline.avgValence) / (baseline.stdValence + 1e-5f);
+        // 如果 arousal、valence 在基线的 1~2 个标准差之外，说明有显著波动
+        boolean isFarFromBaseline = (Math.abs(zArousal) > AROUSAL_Z_SCORE_THRESHOLD || Math.abs(zValence) > VALENCE_Z_SCORE_THRESHOLD);
+
+
+        // Step 3.2 根据情绪圆环阈值判断是否属于负面区域
+        // 例如：愤怒 Angry => valence < -0.2, arousal > 0.6
+
+
+        // 方案2：判断整体窗口中负面采样比例是否超过阈值
+        boolean ratioCondition = ((float) negativeCount / total) >= NEGATIVE_RATIO_THRESHOLD;
+
+        // 你可以继续定义其他情绪阈值，比如烦躁、悲伤等
+        // ...
+
+        // 最终逻辑：若显著偏离基线 并且 落入负面情绪区域，就认为异常
+        return isFarFromBaseline && ratioCondition;
+    }
+
     // 判断 V-A 值是否异常，此处简单判断 valence 是否低于阈值
     /**
      * 判断过去10秒内情绪数据的波动率是否超过预设阈值，
      * 如果任一指标（arousal或valence）的标准差超过阈值，则认为情绪出现急剧波动，触发异常。
      */
-    private boolean isNegativeAbnormal(List<CapturedData> captureBuffer) {
-        if (captureBuffer.size() < MIN_SAMPLES) {
+    private boolean isNegativeAbnormal_1(List<CapturedData> captureBuffer) {
+        if (captureBuffer.size() < WINDOW_SAMPLES_NUM) {
             // 数据不足，不进行判断
             return false;
         }
@@ -532,7 +613,7 @@ public class EmotionMonitoringService extends Service {
                             data.screenBitmap.compress(Bitmap.CompressFormat.JPEG, 40, scrOut);
                         }
                     }
-                    // 生成 CSV 行：摄像头文件名,屏幕截图文件名,Valence,Arousal
+                    // 生成 CSV 行：摄像头文件名,屏幕截图文件名,,Arousal,Valence
                     String line = camFileName + "," + scrFileName + "," + data.avValues[0] + "," + data.avValues[1] + "\n";
                     fos.write(line.getBytes());
                 }
