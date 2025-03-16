@@ -74,7 +74,7 @@ public class EmotionMonitoringService extends Service {
 
     // 定义一些阈值和最小采样数量
     private static final int WINDOW_SAMPLES_NUM = 5; // 窗口长度5条数据
-    private static final int HISTORY_LEAST_SAMPLES_NUM = 100; // 至少300个历史数据再记录
+    private static final int HISTORY_LEAST_SAMPLES_NUM = 50; // 至少300个历史数据再记录
     private static final long WINDOW_DURATION_MS = 10_000; // 10秒
     private static final int MIN_RECENT_SAMPLES = 3;        // 至少需要3个采样点
     private static final float AROUSAL_STD_THRESHOLD = 0.12f; // 激活度标准差阈值
@@ -83,10 +83,10 @@ public class EmotionMonitoringService extends Service {
     private static final float AROUSAL_Z_SCORE_THRESHOLD = 1.5f; // 激活度标准差阈值
     private static final float VALENCE_Z_SCORE_THRESHOLD = 1.5f; // 情绪价值标准差阈值
 
-    private static final float NEGATIVE_RATIO_THRESHOLD = 0.5f; // 窗口中负面采样占比阈值
+    private static final float NEGATIVE_RATIO_THRESHOLD = 0.3f; // 窗口中负面采样占比阈值0.3
 
     private static final float ANGER_VALENCE_THRESHOLD = -0.2f;
-    private static final float ANGER_AROUSAL_THRESHOLD = 0.6f;
+    private static final float ANGER_AROUSAL_THRESHOLD = 0.4f;
 
     private ImageCapture imageCapture;
     private ProcessCameraProvider cameraProvider;
@@ -367,8 +367,9 @@ public class EmotionMonitoringService extends Service {
                                         if (currentTime - lastAbnormalTime >= ABNORMAL_COOLDOWN_MS) {
                                             lastAbnormalTime = currentTime;
                                             Log.d(TAG, "captureAndProcess: Negative emotion detected!");
-                                            saveAbnormalData();
                                             Toast.makeText(getApplicationContext(), "检测到负面情绪异常", Toast.LENGTH_SHORT).show();
+                                            saveAbnormalData();
+                                            saveGlobalHistoryData();
                                             // 在检测异常的地方调用（例如在 captureAndProcess() 中）：
                                             String abnormalInfo = "Valence: " + avValues[0] + ", Arousal: " + avValues[1] + " at timestamp " + timestamp;
                                             // ChatGpt
@@ -588,12 +589,12 @@ public class EmotionMonitoringService extends Service {
         }
 
         // 同时生成一个文本文件记录 V-A 值
-        String csvFileName = "av_record.csv";
+        String csvFileName = "av_record_captureBuffer.csv";
         File csvFile = new File(dir, csvFileName);
 
         try (FileOutputStream fos = new FileOutputStream(csvFile)) {
             // 写入 CSV 表头
-            String header = "CameraImage,ScreenImage,Arousal,Valence\n";
+            String header = "Timestamp,Arousal,Valence\n";
             fos.write(header.getBytes());
 
             synchronized (captureBuffer) {
@@ -614,16 +615,52 @@ public class EmotionMonitoringService extends Service {
                         }
                     }
                     // 生成 CSV 行：摄像头文件名,屏幕截图文件名,,Arousal,Valence
-                    String line = camFileName + "," + scrFileName + "," + data.avValues[0] + "," + data.avValues[1] + "\n";
+                    String line = timestamp + "," + data.avValues[0] + "," + data.avValues[1] + "\n";
                     fos.write(line.getBytes());
                 }
             }
+
+
             fos.flush();
             Log.d(TAG, "saveAbnormalData: Abnormal data saved successfully to " + baseDir);
         } catch (IOException e) {
             Log.e(TAG, "保存异常数据失败: " + e.getMessage());
         }
     }
+    private void saveGlobalHistoryData() {
+        // 保存路径：例如保存在应用外部存储的文件夹中
+        String baseDir = getExternalFilesDir(Environment.DIRECTORY_ALARMS)+"";
+        File dir = new File(baseDir);
+
+        // 同时生成一个文本文件记录 V-A 值
+        String csvFileName = "av_record_globalHistory.csv";
+        File csvFile = new File(dir, csvFileName);
+
+        try (FileOutputStream fos = new FileOutputStream(csvFile)) {
+            // 写入 CSV 表头
+            String header = "Timestamp,Arousal,Valence\n";
+            fos.write(header.getBytes());
+
+            synchronized (GlobalHistory.getGlobalVAList()) {
+                for (CapturedData data : GlobalHistory.getGlobalVAList()) {
+                    String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss_SSS").format(new Date(data.timestamp));
+
+
+                    // 生成 CSV 行：摄像头文件名,屏幕截图文件名,,Arousal,Valence
+                    String line = timestamp + "," + data.avValues[0] + "," + data.avValues[1] + "\n";
+                    fos.write(line.getBytes());
+                }
+            }
+
+
+            fos.flush();
+            Log.d(TAG, "saveAbnormalData: Abnormal data saved successfully to " + baseDir);
+        } catch (IOException e) {
+            Log.e(TAG, "保存异常数据失败: " + e.getMessage());
+        }
+
+    }
+
 
     // 将 ImageProxy 转换为 Bitmap 的工具方法（简化版）
     private Bitmap imageProxyToBitmap(ImageProxy image) {

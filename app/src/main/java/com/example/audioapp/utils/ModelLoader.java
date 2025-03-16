@@ -21,8 +21,8 @@ public class ModelLoader {
     // 定义归一化参数（与训练时一致）
     private static final float[] NORM_MEAN = {0.485f, 0.456f, 0.406f};
     private static final float[] NORM_STD = {0.229f, 0.224f, 0.225f};
-    public static final String modelPath = "lc_best.pt";
-    public static final String exampleImgPath = "mask.jpg";
+    public static final String modelPath = "lc_best_20.pt";
+    public static final String exampleImgPath = "happy3.png";
     private static Module module;
     private Bitmap exampleBitmap = null;
 

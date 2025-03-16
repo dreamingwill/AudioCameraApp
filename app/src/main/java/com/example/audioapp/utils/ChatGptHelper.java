@@ -40,7 +40,7 @@ public class ChatGptHelper {
             "激活程度(Ar): %.2f\n" +
             "情绪价值(Va): %.2f\n" +
             "时间戳: %d\n" +
-            "请用简短温和幽默的语言，给出安抚建议。";
+            "回复不多于15个汉字\n请用简短温和幽默的语言，给出安抚建议。";
 
     private final OkHttpClient client;
 

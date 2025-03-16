@@ -283,11 +283,18 @@ public class FirstFragment extends Fragment {
 
         if (isRecordingVideo) {
             // 停止录制
-            Intent serviceIntent = new Intent(getActivity(), VideoRecordingService.class);
+            Intent serviceIntent = new Intent(getContext(), VideoRecordingService.class);
             requireActivity().stopService(serviceIntent);
             // 音频
             stopAudioRecording();
         }
+
+//        if(isMonitoring){
+//            Intent serviceIntent = new Intent(getContext(), EmotionMonitoringService.class);
+//            requireContext().stopService(serviceIntent);
+//            //
+//            closeCSVWriter();
+//        }
 
         if (cameraExecutor != null) {
             cameraExecutor.shutdown();
@@ -907,15 +914,19 @@ public class FirstFragment extends Fragment {
             @Override
             public void onClick(View view) {
                 if (!isMonitoring) {
+                    String fileName = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
                     // 使用 monitoringLauncher 启动屏幕录制权限请求，后续回调中会启动 EmotionMonitoringService
                     Intent captureIntent = mediaProjectionManager.createScreenCaptureIntent();
                     monitoringLauncher.launch(captureIntent);
+                    initCSVFile(FileUtil.getCSVFileAbsolutePath(fileName));
                     // 此处 isMonitoring 状态可在回调中设置，或者你也可以在点击后就设置为 true
 
                 } else {
                     // 停止监测
                     Intent serviceIntent = new Intent(getContext(), EmotionMonitoringService.class);
                     requireContext().stopService(serviceIntent);
+                    //
+                    closeCSVWriter();
                     monitorButton.setText("monitor");
                     isMonitoring = false;
                 }
