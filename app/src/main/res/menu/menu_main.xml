@@ -6,5 +6,18 @@
         android:id="@+id/action_settings"
         android:orderInCategory="100"
         android:title="@string/action_settings"
+        android:visible="false"
         app:showAsAction="never" />
+    <!-- 菜单项：切换到 FirstFragment -->
+    <item
+        android:id="@+id/action_to_user"
+        android:title="@string/user_page"
+        android:orderInCategory="100"
+        app:showAsAction="never" />
+    <!-- 菜单项：切换到 SecondFragment -->
+    <item
+        android:id="@+id/action_to_dev"
+        android:title="@string/developer_page"
+        android:orderInCategory="100"
+        app:showAsAction="never"/>
 </menu>

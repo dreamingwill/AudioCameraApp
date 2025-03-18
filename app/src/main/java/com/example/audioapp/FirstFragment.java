@@ -8,6 +8,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.database.Cursor;
@@ -121,7 +122,7 @@ public class FirstFragment extends Fragment {
     private TextView phrases;
     private Button clickShow;
     private int phrase_type;
-    private Button start,pause,play, stop, type, pause2, next, previous, loop, switch_btn, playSignalButton;
+    private Button start,pause,play, stop, type, pause2, next, previous, loop, switch_btn, playSignalButton, toggleOrientationButton;
     private Button imageCaptureButton, videoCaptureButton, collectDataButton,frontRecordingButton,screenRecordButton, modelPredictButton, monitorButton;
     private TextView wavplaying;
     private ProgressBar progressBar;
@@ -149,7 +150,7 @@ public class FirstFragment extends Fragment {
     private Recording recording = null;// video recording
 
     private ExecutorService cameraExecutor;
-    private boolean isRecordingVideo = false, isRecording_screen = false, isSignalPlaying = false; //frontRecording
+    private boolean isRecordingVideo = false, isRecording_screen = false, isSignalPlaying = false, isLandscape = true;; //frontRecording
 
 
     private static final String TAG = "FirstFragment";
@@ -246,19 +247,14 @@ public class FirstFragment extends Fragment {
         mSensorManager2.registerListener(mListener2, mSensor2, 50_000);
 
 
-        // creating bitmap from packaged into app android asset 'image.jpg',
-        // app/src/main/res/raw/image.jpg
-        try {
-            bitmap = BitmapFactory.decodeStream(assetManager.open("lc.png"));
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
         //bitmap = BitmapFactory.decodeStream(getResources().openRawResource(R.raw.anger_me));
         // loading serialized torchscript module from packaged into app android asset model.pt,
         // app/src/main/res/raw/
         // 加载模型
         modelLoader = new ModelLoader(assetManager);
+
+        getActivity().setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+
 
     }
 
@@ -313,8 +309,28 @@ public class FirstFragment extends Fragment {
             Bundle savedInstanceState) {
         //camera
         //binding = FragmentFirstBinding.inflate(inflater, container, false);
+        View view = inflater.inflate(R.layout.fragment_first, container, false);
+        Button toggleOrientationButton = view.findViewById(R.id.toggle_orientation_button);
+        // 初始按钮文本，可以根据当前状态设置
 
-        return inflater.inflate(R.layout.fragment_first, container, false);
+        toggleOrientationButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (getActivity() != null) {
+                    if (isLandscape) {
+                        // 切换为竖屏
+                        getActivity().setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+                    } else {
+                        // 切换为横屏
+                        getActivity().setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+
+                    }
+                    isLandscape = !isLandscape;
+                }
+            }
+        });
+
+        return view;
     }
 
     @Override
@@ -325,35 +341,6 @@ public class FirstFragment extends Fragment {
         getActivity().registerReceiver(screenRecordingStateReceiver, filter);
     }
 
-    /*
-    @Override
-    public void onResume() {
-        super.onResume();
-        Log.e("111", "onResume");
-        if (null != mSensor) {
-            Log.e("111", "onResume register");
-            //mSensorManager.registerListener(mListener, mSensor, SensorManager.SENSOR_DELAY_GAME);
-            mSensorManager.registerListener(mListener, mSensor, 50000);
-        }
-        if(null != mSensor2) {
-            //mSensorManager2.registerListener(mListener2, mSensor2, SensorManager.SENSOR_DELAY_GAME);
-            mSensorManager2.registerListener(mListener2, mSensor2, 50000);
-        }
-    }
-
-    @Override
-    public void onPause() {
-        super.onPause();
-        Log.e("111", "onPause");
-        if (null != mSensor) {
-            Log.e("111", "onPause unregister");
-            mSensorManager.unregisterListener(mListener);
-        }
-        if (null != mSensor2) {
-            mSensorManager.unregisterListener(mListener2);
-        }
-    }
-    */
     @Override
     public void onResume() {
         super.onResume();
@@ -510,7 +497,7 @@ public class FirstFragment extends Fragment {
         screenRecordButton = view.findViewById(R.id.screen_record_button);
         modelPredictButton = view.findViewById(R.id.model_predict_button);
         monitorButton = view.findViewById(R.id.monitor_button);
-
+        //
 
         // 新建一个用于监测的 launcher
         monitoringLauncher = registerForActivityResult(
@@ -882,28 +869,28 @@ public class FirstFragment extends Fragment {
             @Override
             public void onClick(View view) {
                 // 运行模型
-                if (bitmap != null) {
-                    long startTime = System.currentTimeMillis();
 
-                    float[] output = modelLoader.runModel(modelLoader.getExampleBitmap());
-                    long endTime = System.currentTimeMillis();
-                    long duration = endTime - startTime;
-                    // 处理输出结果
-                    System.out.printf("模型 %s 的预测图片 %s 结果 -> a: %.4f, v: %.4f, 耗时: %d ms%n", ModelLoader.modelPath, ModelLoader.exampleImgPath, output[0], output[1], duration);
-                    Log.d(TAG, "onClick: a:" + output[0] + " , v:" + output[1] + ", 耗时: " + duration + " ms");
-                    motionText.setText("a: " + output[0] + " , v " + output[1] + ", \n耗时: " + duration + " ms");
+                long startTime = System.currentTimeMillis();
 
-                    FaceDetectorHelper.cropFaceFromBitmap(getContext(), modelLoader.getExampleBitmap(), new FaceDetectorHelper.FaceDetectionCallback() {
-                        @Override
-                        public void onFaceDetected(@Nullable Bitmap faceBitmap) {
-                            if (faceBitmap == null) {
-                                // 没有检测到人脸，则不进行模型推理
-                                Log.d(TAG, "No face detected, skipping model inference.");
-                            }else {
-                                Log.d(TAG, "face detected, to do ...");
-                            }
-                        }});
-                }
+                float[] output = modelLoader.runModel(modelLoader.getExampleBitmap());
+                long endTime = System.currentTimeMillis();
+                long duration = endTime - startTime;
+                // 处理输出结果
+                System.out.printf("模型 %s 的预测图片 %s 结果 -> a: %.4f, v: %.4f, 耗时: %d ms%n", ModelLoader.modelPath, ModelLoader.exampleImgPath, output[0], output[1], duration);
+                Log.d(TAG, "onClick: a:" + output[0] + " , v:" + output[1] + ", 耗时: " + duration + " ms");
+                motionText.setText("a: " + output[0] + " , v " + output[1] + ", \n耗时: " + duration + " ms");
+
+                FaceDetectorHelper.cropFaceFromBitmap(getContext(), modelLoader.getExampleBitmap(), new FaceDetectorHelper.FaceDetectionCallback() {
+                    @Override
+                    public void onFaceDetected(@Nullable Bitmap faceBitmap) {
+                        if (faceBitmap == null) {
+                            // 没有检测到人脸，则不进行模型推理
+                            Log.d(TAG, "No face detected, skipping model inference.");
+                        }else {
+                            Log.d(TAG, "face detected, to do ...");
+                        }
+                    }});
+
 
 
 

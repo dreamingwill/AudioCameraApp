@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">AudioCameraApp</string>
+    <string name="app_name">GameGuardian</string>
     <string name="action_settings">Settings</string>
     <!-- Strings used for fragments for navigation -->
     <string name="first_fragment_label">First Fragment</string>
@@ -16,5 +16,9 @@
     <string name="front_recording_button">signal</string>
     <string name="predict_string">predict</string>
     <string name="monitor">monitor</string>
+    <string name="rotate_view">Rotate View</string>
+    <string name="gpt">Gpt</string>
+    <string name="user_page">user page</string>
+    <string name="developer_page">developer page</string>
 
 </resources>

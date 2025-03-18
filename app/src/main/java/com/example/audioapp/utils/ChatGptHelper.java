@@ -7,6 +7,7 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
+import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
 import android.util.Base64;
 import android.util.Log;
@@ -16,31 +17,37 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+
 import com.example.audioapp.entity.CapturedData;
 import com.example.audioapp.BuildConfig;
 public class ChatGptHelper {
     private static final String TAG = "ChatGptHelper";
     // 请替换为你的实际 API 密钥和 API 端点
-    private static final String API_KEY = BuildConfig.OPENAI_API_KEY;
-    private static final String API_URL = "https://aigc.x-see.cn/v1/chat/completions";
+    private static final String API_KEY = BuildConfig.OPENAI_BASE_KEY_2;
+    private static final String API_URL = BuildConfig.OPENAI_BASE_URL_2;
     private static final MediaType JSON_MEDIA_TYPE = MediaType.get("application/json; charset=utf-8");
 
     // 系统提示：专业、友善的游戏心理辅导助手
     private static final String SYSTEM_PROMPT = "你是一位专业的游戏心理辅导助手,擅长分析游戏玩家的心理状态和行为模式。你的主要职责是:\n" +
             "1. 通过游戏截图分析玩家的游戏表现和失败原因\n" +
-            "2. 基于玩家的情绪数据和行为特征提供个性化的心理支持\n" +
+            "2. 基于玩家的情绪数据提供个性化的心理支持\n" +
             "3. 给出具有建设性的游戏建议,帮助玩家重建信心\n" +
-            "4. 用温和幽默的方式缓解玩家的负面情绪\n\n" +
-            "请以专业、友善且富有同理心的态度与玩家互动。";
+            "4. 用温和幽默的方式缓解玩家的负面情绪\n" +
+            "5. 请你提及玩家正在玩的游戏内容或情况（重要）\n" +
+            "请以专业、友善且富有同理心的态度与玩家互动。\n回复不多于15个汉字";
 
     // 任务提示模板：只使用 CapturedData 中的信息
     // 其中 avValues[0] 为 arousal，avValues[1] 为 valence
-    private static final String TASK_PROMPT_TEMPLATE = "请分析以下玩家的情绪数据：\n" +
-            "激活程度(Ar): %.2f\n" +
-            "情绪价值(Va): %.2f\n" +
-            "时间戳: %d\n" +
-            "回复不多于15个汉字\n请用简短温和幽默的语言，给出安抚建议。";
+    private static final String TASK_PROMPT_TEMPLATE = "以下是玩家的近5秒的情绪数据：\n" +
+            "激活程度(Arousal): %.2f\n" +
+            "情绪价值(Valence): %.2f\n" +
+            "\n请用简短温和幽默的语言，给出安抚建议。";
 
     private final OkHttpClient client;
 
@@ -52,13 +59,22 @@ public class ChatGptHelper {
      * 使用 CapturedData 中的信息生成对 GPT 的请求，并返回安抚建议。
      * 其中将 CapturedData 的 screenBitmap 作为图片数据上传（通过转换为 data URL）。
      *
-     * @param data     CapturedData 对象，包含情绪数据和屏幕截图
+     * @param captureBuffer     CapturedData 对象，包含情绪数据和屏幕截图
      * @param callback 回调接口，返回 GPT 回复或错误信息
      */
-    public void getInterventionResponse(CapturedData data, ChatGptCallback callback) {
+    @SuppressLint("DefaultLocale")
+    public void getInterventionResponse(List<CapturedData> captureBuffer, ChatGptCallback callback) {
         // 根据 CapturedData 构建文本提示
-        String promptText = String.format(TASK_PROMPT_TEMPLATE,
-                data.avValues[0], data.avValues[1], data.timestamp);
+        // 构建描述每个采样点情绪数据的文本
+        StringBuilder promptBuilder = new StringBuilder();
+        promptBuilder.append("以下是玩家近5秒内每个时刻的情绪数据：\n(Arousal,Valence):");
+
+        for (CapturedData data : captureBuffer) {
+            // 如果需要对 timestamp 做格式化，可以根据需求转换为具体时间格式，这里直接输出数字
+            promptBuilder.append(String.format("(%.2f,%.2f),", data.avValues[0],data.avValues[1]));
+        }
+        promptBuilder.append("\n请用简短温和幽默的语言，给出安抚建议,不多于15个汉字。");
+        String promptText = promptBuilder.toString();
 
         // 构建用户消息内容，使用 JSON 数组形式
         JSONArray contentArray = new JSONArray();
@@ -70,16 +86,24 @@ public class ChatGptHelper {
             contentArray.put(textObj);
 
             // 第二项：图片数据，使用 CapturedData 的 screenBitmap
-            if (data.screenBitmap != null) {
-                JSONObject imgObj = new JSONObject();
-                imgObj.put("type", "image_url");
-                JSONObject urlObj = new JSONObject();
-                // 将 Bitmap 转为 data URL
-                String dataUrl = bitmapToDataUrl(data.screenBitmap);
-                urlObj.put("url", dataUrl);
-                imgObj.put("image_url", urlObj);
-                contentArray.put(imgObj);
+            int[] indicesToSend = {0, 2, 4};
+            for (int idx : indicesToSend) {
+                if (captureBuffer.size() > idx) {
+                    CapturedData data = captureBuffer.get(idx);
+                    if (data.screenBitmap != null) {
+                        JSONObject imgObj = new JSONObject();
+                        imgObj.put("type", "image_url");
+                        JSONObject urlObj = new JSONObject();
+                        // 这里设置质量为 30，达到降低图片大小的效果
+                        String dataUrl = bitmapToDataUrl(data.screenBitmap, 30);
+                        urlObj.put("url", dataUrl);
+                        imgObj.put("image_url", urlObj);
+                        contentArray.put(imgObj);
+                    }
+                }
             }
+
+
         } catch (JSONException e) {
             callback.onFailure("JSON构建错误: " + e.getMessage());
             return;
@@ -158,10 +182,10 @@ public class ChatGptHelper {
      * @param bitmap 要转换的 Bitmap
      * @return data URL 字符串
      */
-    private String bitmapToDataUrl(Bitmap bitmap) {
+    private String bitmapToDataUrl(Bitmap bitmap, int quality) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         // 可根据需求调整压缩质量
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 80, baos);
+        bitmap.compress(Bitmap.CompressFormat.JPEG, quality, baos);
         byte[] imageBytes = baos.toByteArray();
         String base64 = Base64.encodeToString(imageBytes, Base64.NO_WRAP);
         Log.d(TAG, "bitmapToDataUrl: "+"data:image/jpeg;base64," + base64);

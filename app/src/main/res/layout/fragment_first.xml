@@ -256,7 +256,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.05"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/click_display" />
+        app:layout_constraintTop_toBottomOf="@+id/toggle_orientation_button" />
 
     <Button
         android:id="@+id/loop"
@@ -266,7 +266,7 @@
         android:layout_marginTop="5dp"
         android:text="loop off"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintHorizontal_bias="0.05"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/type" />
 
@@ -294,8 +294,21 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Click"
+        android:visibility="gone"
         app:layout_constraintEnd_toEndOf="@+id/type"
         app:layout_constraintTop_toTopOf="@+id/surfaceView" />
+
+    <Button
+        android:id="@+id/toggle_orientation_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/rotate_view"
+        app:layout_constraintBottom_toTopOf="@+id/guideline2"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.05"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/linearLayout_3"
+        app:layout_constraintVertical_bias="0.1" />
 
     <TextView
         android:id="@+id/phrases"

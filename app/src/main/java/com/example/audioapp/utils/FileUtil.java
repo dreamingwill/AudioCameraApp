@@ -11,7 +11,7 @@ import java.util.Date;
 import java.util.List;
 
 public class FileUtil {
-    private static String rootPath = "AudioAppStorage";
+    private static String rootPath = "";
     private static String basePath = Environment.getExternalStorageDirectory().getAbsolutePath();
 
     //原始文件(不能播放)

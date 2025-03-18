@@ -14,12 +14,12 @@ android {
     buildToolsVersion "30.0.3"
 
     defaultConfig {
-        applicationId "com.example.AudioCameraApp48k"
+        applicationId "com.example.EmoGuardian"
         minSdkVersion 28
         //noinspection ExpiredTargetSdkVersion
         targetSdkVersion 31
         versionCode 1
-        versionName "1.2"
+        versionName "1.3"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         lintOptions {
@@ -27,6 +27,9 @@ android {
             checkReleaseBuilds false
         }
         buildConfigField "String", "OPENAI_API_KEY", "\"${localProperties.getProperty("OPENAI_API_KEY")}\""
+        buildConfigField "String", "OPENAI_API_URL", "\"${localProperties.getProperty("OPENAI_API_URL")}\""
+        buildConfigField "String", "OPENAI_BASE_URL_2", "\"${localProperties.getProperty("OPENAI_BASE_URL_2")}\""
+        buildConfigField "String", "OPENAI_BASE_KEY_2", "\"${localProperties.getProperty("OPENAI_BASE_KEY_2")}\""
 
     }
 
@@ -89,7 +92,7 @@ dependencies {
 
     // ML Kit 人脸检测依赖
     implementation 'com.google.mlkit:face-detection:16.1.5'
-    // Google Play 服务任务库，用于 Tasks.await()
+
     //implementation 'com.google.android.gms:play-services-tasks:17.2.1'
 
     implementation files('libs/super-csv-2.4.0.jar')

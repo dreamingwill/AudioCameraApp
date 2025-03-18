@@ -31,6 +31,11 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.Gravity;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -75,24 +80,22 @@ public class EmotionMonitoringService extends Service {
     // 定义一些阈值和最小采样数量
     private static final int WINDOW_SAMPLES_NUM = 5; // 窗口长度5条数据
     private static final int HISTORY_LEAST_SAMPLES_NUM = 50; // 至少300个历史数据再记录
-    private static final long WINDOW_DURATION_MS = 10_000; // 10秒
+    private static final int HISTORY_MOST_SAMPLES_NUM = 120; // 最大记录
     private static final int MIN_RECENT_SAMPLES = 3;        // 至少需要3个采样点
     private static final float AROUSAL_STD_THRESHOLD = 0.12f; // 激活度标准差阈值
     private static final float VALENCE_STD_THRESHOLD = 0.12f; // 情绪价值标准差阈值
 
-    private static final float AROUSAL_Z_SCORE_THRESHOLD = 1.5f; // 激活度标准差阈值
-    private static final float VALENCE_Z_SCORE_THRESHOLD = 1.5f; // 情绪价值标准差阈值
-
+    private static final float AROUSAL_Z_SCORE_THRESHOLD = 1.0f; // 激活度标准差阈值
+    private static final float VALENCE_Z_SCORE_THRESHOLD = 1.0f; // 情绪价值标准差阈值
     private static final float NEGATIVE_RATIO_THRESHOLD = 0.3f; // 窗口中负面采样占比阈值0.3
-
-    private static final float ANGER_VALENCE_THRESHOLD = -0.2f;
-    private static final float ANGER_AROUSAL_THRESHOLD = 0.4f;
+    private static final float ANGER_VALENCE_THRESHOLD = -0.25f;
+    private static final float ANGER_AROUSAL_THRESHOLD = 0.3f;
 
     private ImageCapture imageCapture;
     private ProcessCameraProvider cameraProvider;
     private ScheduledExecutorService scheduledExecutor;
     // 用于保存照片和 V-A 记录的缓冲区
-    private final List<CapturedData> captureBuffer = new LinkedList<>();
+    public static final List<CapturedData> captureBuffer = new LinkedList<>();
 
     // 请确保你已经加载好了 PyTorch 模型，这里假设 module 是一个全局变量或通过其他方式传入
     // private Module module;
@@ -101,7 +104,7 @@ public class EmotionMonitoringService extends Service {
     private boolean abnormalTriggered = false;
     // 定义全局变量
     private long lastAbnormalTime = 0;
-    private static final long ABNORMAL_COOLDOWN_MS = 60_000; // 冷却时间，例如60秒
+    private static final long ABNORMAL_COOLDOWN_MS = 30_000; // 冷却时间，例如60秒
 
     // 数据结构：保存一张照片和对应的 V-A 值记录
 
@@ -121,8 +124,7 @@ public class EmotionMonitoringService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        Log.d(TAG, "onCreate: EmotionMonitoringService is created");
-        Toast.makeText(this, "Service onCreate", Toast.LENGTH_SHORT).show();
+
         // 初始化屏幕参数
         DisplayMetrics metrics = getResources().getDisplayMetrics();
         screenWidth = metrics.widthPixels;
@@ -170,6 +172,9 @@ public class EmotionMonitoringService extends Service {
         } else {
             Log.w(TAG, "onStartCommand: No MediaProjection extras, screenshot capture disabled");
         }
+        //
+
+
 
         // 启动摄像头
         startCamera();
@@ -180,7 +185,10 @@ public class EmotionMonitoringService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        Log.d(TAG, "onDestroy: Service is being destroyed");
+        // 保存 globalHistory 到 CSV 文件
+        File csvFile = new File(getExternalFilesDir(Environment.DIRECTORY_ALARMS + "/GlobalHistory"), "av_record_globalHistory.csv");
+        GlobalHistory.saveToCSV(csvFile);
+        Log.d(TAG, "Global history saved to " + csvFile.getAbsolutePath());
         if (scheduledExecutor != null) {
             scheduledExecutor.shutdown();
         }
@@ -215,6 +223,7 @@ public class EmotionMonitoringService extends Service {
     // 初始化并启动摄像头：这里使用 ImageCapture 用例采集照片
     private void startCamera() {
         Log.d(TAG, "startCamera: initializing camera");
+
         ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(this);
         cameraProviderFuture.addListener(() -> {
             try {
@@ -252,6 +261,18 @@ public class EmotionMonitoringService extends Service {
                 }, cameraSelector, imageCapture);
                 Log.d(TAG, "startCamera: Camera initialized successfully");
                 // 摄像头初始化完成后，再启动定时任务，每隔1秒采集一张照片
+
+                // 保存路径：例如保存在应用外部存储的文件夹中
+//                String baseDir = getExternalFilesDir(Environment.DIRECTORY_ALARMS)+"/GlobalHistory";
+//                File dir = new File(baseDir);
+//                if (dir.exists()) {
+//                    // 同时生成一个文本文件记录 V-A 值
+//                    String csvFileName = "av_record_globalHistory.csv";
+//                    File csvFile = new File(dir, csvFileName);
+//                    GlobalHistory.loadFromCSV(csvFile);
+//                    Log.d(TAG, "onStartCommand: GlobalHistory loaded");
+//                }
+
                 scheduledExecutor.scheduleWithFixedDelay(() -> captureAndProcess(), 0,  1000, TimeUnit.MILLISECONDS);
 
             } catch (Exception e) {
@@ -369,42 +390,32 @@ public class EmotionMonitoringService extends Service {
                                             Log.d(TAG, "captureAndProcess: Negative emotion detected!");
                                             Toast.makeText(getApplicationContext(), "检测到负面情绪异常", Toast.LENGTH_SHORT).show();
                                             saveAbnormalData();
-                                            saveGlobalHistoryData();
+
+                                            File csvFile = new File(getExternalFilesDir(Environment.DIRECTORY_ALARMS + "/GlobalHistory"), "av_record_globalHistory.csv");
+                                            GlobalHistory.saveToCSV(csvFile);
                                             // 在检测异常的地方调用（例如在 captureAndProcess() 中）：
                                             String abnormalInfo = "Valence: " + avValues[0] + ", Arousal: " + avValues[1] + " at timestamp " + timestamp;
                                             // ChatGpt
                                             ChatGptHelper chatGptHelper = new ChatGptHelper();
                                             chatGptHelper.getInterventionResponse(
-                                                    captureBuffer.get(captureBuffer.size()-1),
+                                                    captureBuffer,
                                                     new ChatGptHelper.ChatGptCallback() {
                                                         @Override
                                                         public void onSuccess(String reply) {
+
                                                             // 在主线程中更新 UI，可使用 Handler 切换
                                                             new Handler(Looper.getMainLooper()).post(() -> {
-                                                                Toast.makeText(getApplicationContext(),  reply, Toast.LENGTH_LONG).show();
-                                                                Log.d(TAG, "onSuccess: ChatGPT: " + reply);
-                                                                // 构建通知
-                                                                NotificationCompat.Builder builder = new NotificationCompat.Builder(getApplicationContext(), "chatgpt_reply_channel")
-                                                                        .setContentTitle("ChatGPT回复")
-                                                                        .setContentText(reply)
-                                                                        .setSmallIcon(R.drawable.ic_launcher_background)
-                                                                        .setStyle(new NotificationCompat.BigTextStyle().bigText(reply)) // 展开显示完整内容
-                                                                        .setPriority(NotificationCompat.PRIORITY_MAX) // 最高优先级
-                                                                        .setAutoCancel(true); // 点击后自动消失
-
-                                                                // 发送通知
-                                                                NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-                                                                if (manager != null) {
-                                                                    int notificationId = (int) System.currentTimeMillis(); // 生成唯一 ID
-                                                                    manager.notify(notificationId, builder.build());
-                                                                }
-
-//                                                    Log.d(TAG, "onSuccess: "+"ChatGPT: " + reply);
+                                                                Toast toast = Toast.makeText(getApplicationContext(), reply, Toast.LENGTH_LONG);
+                                                                toast.show();
+                                                                Log.d(TAG, "onSuccess: "+reply);
+                                                                // 额外延长显示时间
+                                                                //new Handler(Looper.getMainLooper()).postDelayed(toast::show, 1000); // 额外延长 3.5 秒
                                                             });
                                                         }
                                                         @Override
                                                         public void onFailure(String error) {
                                                             new Handler(Looper.getMainLooper()).post(() -> {
+                                                                //showCustomToast(error,5000);
                                                                 Toast.makeText(getApplicationContext(), "Failed to get response: " + error, Toast.LENGTH_SHORT).show();
                                                                 Log.e(TAG, "onFailure: Failed to get response:" + error );
                                                             });
@@ -428,29 +439,6 @@ public class EmotionMonitoringService extends Service {
 
     }
 
-    // 捕获屏幕截图：使用 ImageReader 获取最新的 Image 并转换为 Bitmap
-    private Bitmap captureScreenShot() {
-        if (imageReader == null) {
-            Log.e(TAG, "captureScreenShot: imageReader is null");
-            return null;
-        }
-
-        Image image = imageReader.acquireLatestImage();
-        if (image == null) {
-            Log.e(TAG, "captureScreenShot: No Screen Image available");
-            return null;
-        }
-        // 获取 HardwareBuffer
-        HardwareBuffer buffer = image.getHardwareBuffer();
-        // 使用 HardwareBuffer 创建 Bitmap（需要 API 26+）
-        Bitmap bitmap = null;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            bitmap = Bitmap.wrapHardwareBuffer(buffer, null);
-        }
-        image.close();
-        return bitmap;
-    }
-
 
 
     private boolean isNegativeAbnormal(List<CapturedData> captureBuffer) {
@@ -469,8 +457,7 @@ public class EmotionMonitoringService extends Service {
 
         int total = captureBuffer.size();
         int negativeCount = 0;
-        int maxConsecutiveNegative = 0;
-        int currentConsecutive = 0;
+
 
         // Step 3: 判断短期窗口是否偏离基线
         float sumArousal = 0, sumValence = 0;
@@ -487,12 +474,6 @@ public class EmotionMonitoringService extends Service {
             boolean isNegative = isAngry|| isSad;
             if (isNegative) {
                 negativeCount++;
-                currentConsecutive++;
-                if (currentConsecutive > maxConsecutiveNegative) {
-                    maxConsecutiveNegative = currentConsecutive;
-                }
-            } else {
-                currentConsecutive = 0;
             }
         }
         float avgArousal = sumArousal / captureBuffer.size();
@@ -510,76 +491,23 @@ public class EmotionMonitoringService extends Service {
 
 
         // 方案2：判断整体窗口中负面采样比例是否超过阈值
-        boolean ratioCondition = ((float) negativeCount / total) >= NEGATIVE_RATIO_THRESHOLD;
+        boolean negativeRatioCondition = ((float) negativeCount / total) >= NEGATIVE_RATIO_THRESHOLD;
 
         // 你可以继续定义其他情绪阈值，比如烦躁、悲伤等
         // ...
+        // 方案3，如果是在笑，就舍弃
+        boolean isHappy = captureBuffer.get(3).avValues[1] > 0.15 || captureBuffer.get(4).avValues[1] > 0.15;
 
         // 最终逻辑：若显著偏离基线 并且 落入负面情绪区域，就认为异常
-        return isFarFromBaseline && ratioCondition;
+        return (isFarFromBaseline && negativeRatioCondition) && !isHappy;
     }
 
-    // 判断 V-A 值是否异常，此处简单判断 valence 是否低于阈值
-    /**
-     * 判断过去10秒内情绪数据的波动率是否超过预设阈值，
-     * 如果任一指标（arousal或valence）的标准差超过阈值，则认为情绪出现急剧波动，触发异常。
-     */
-    private boolean isNegativeAbnormal_1(List<CapturedData> captureBuffer) {
-        if (captureBuffer.size() < WINDOW_SAMPLES_NUM) {
-            // 数据不足，不进行判断
-            return false;
-        }
-        long currentTime = System.currentTimeMillis();
-        long windowStart = currentTime - WINDOW_DURATION_MS;
 
-        // 筛选出过去10秒内的数据
-        List<CapturedData> recentData = new ArrayList<>();
-        for (CapturedData data : captureBuffer) {
-            if (data.timestamp >= windowStart) {
-                recentData.add(data);
-            }
-        }
-
-        // 如果采样数量不足，则不做判断
-        if (recentData.size() < MIN_RECENT_SAMPLES) {
-            return false;
-        }
-
-        int n = recentData.size();
-        float sumArousal = 0, sumValence = 0;
-        for (CapturedData data : recentData) {
-            sumArousal += data.avValues[0];  // 索引0: arousal
-            sumValence += data.avValues[1];   // 索引1: valence
-        }
-        float meanArousal = sumArousal / n;
-        float meanValence = sumValence / n;
-
-        // 计算标准差
-        float sumSqDiffArousal = 0, sumSqDiffValence = 0;
-        for (CapturedData data : recentData) {
-            float diffArousal = data.avValues[0] - meanArousal;
-            float diffValence = data.avValues[1] - meanValence;
-            sumSqDiffArousal += diffArousal * diffArousal;
-            sumSqDiffValence += diffValence * diffValence;
-        }
-        float stdArousal = (float) Math.sqrt(sumSqDiffArousal / n);
-        float stdValence = (float) Math.sqrt(sumSqDiffValence / n);
-
-        // 调试输出
-        Log.d("AbnormalCheck", "Recent samples: " + n +
-                ", stdArousal: " + stdArousal + ", stdValence: " + stdValence);
-
-        // 如果任一指标的标准差超过设定阈值，则认为情绪波动剧烈
-        if (stdArousal > AROUSAL_STD_THRESHOLD || stdValence > VALENCE_STD_THRESHOLD) {
-            return true;
-        }
-        return false;
-    }
 
     // 将缓冲区内（最近30条）的照片和 V-A 值记录保存下来
     private void saveAbnormalData() {
         // 保存路径：例如保存在应用外部存储的文件夹中
-        String baseDir = getExternalFilesDir(Environment.DIRECTORY_ALARMS) + "/EmotionAbnormal_" +
+        String baseDir = getExternalFilesDir(Environment.DIRECTORY_ALARMS) + "/WindowCapture/Abnormal_" +
                 new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
         File dir = new File(baseDir);
         Log.d(TAG, "saveAbnormalData:dir directory " + baseDir);
@@ -627,39 +555,7 @@ public class EmotionMonitoringService extends Service {
             Log.e(TAG, "保存异常数据失败: " + e.getMessage());
         }
     }
-    private void saveGlobalHistoryData() {
-        // 保存路径：例如保存在应用外部存储的文件夹中
-        String baseDir = getExternalFilesDir(Environment.DIRECTORY_ALARMS)+"";
-        File dir = new File(baseDir);
 
-        // 同时生成一个文本文件记录 V-A 值
-        String csvFileName = "av_record_globalHistory.csv";
-        File csvFile = new File(dir, csvFileName);
-
-        try (FileOutputStream fos = new FileOutputStream(csvFile)) {
-            // 写入 CSV 表头
-            String header = "Timestamp,Arousal,Valence\n";
-            fos.write(header.getBytes());
-
-            synchronized (GlobalHistory.getGlobalVAList()) {
-                for (CapturedData data : GlobalHistory.getGlobalVAList()) {
-                    String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss_SSS").format(new Date(data.timestamp));
-
-
-                    // 生成 CSV 行：摄像头文件名,屏幕截图文件名,,Arousal,Valence
-                    String line = timestamp + "," + data.avValues[0] + "," + data.avValues[1] + "\n";
-                    fos.write(line.getBytes());
-                }
-            }
-
-
-            fos.flush();
-            Log.d(TAG, "saveAbnormalData: Abnormal data saved successfully to " + baseDir);
-        } catch (IOException e) {
-            Log.e(TAG, "保存异常数据失败: " + e.getMessage());
-        }
-
-    }
 
 
     // 将 ImageProxy 转换为 Bitmap 的工具方法（简化版）
@@ -682,21 +578,81 @@ public class EmotionMonitoringService extends Service {
     }
 
     private void captureScreenManually() {
-        if (imageReader != null) {
-            Image image = imageReader.acquireLatestImage();
-            if (image != null) {
-                Bitmap newBitmap = null;
-                HardwareBuffer buffer = image.getHardwareBuffer();
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && buffer != null) {
-                    newBitmap = Bitmap.wrapHardwareBuffer(buffer, null);
-                }
-                image.close();
+        if (imageReader == null) {
+            Log.d(TAG, "captureScreenManually: imageReader is null");
+            return;
+        }
+        Log.d(TAG, "captureScreenManually: Attempting to acquire latest image...");
+        Image image = imageReader.acquireLatestImage();
+        if (image == null) {
+            Log.d(TAG, "captureScreenManually: acquireLatestImage returned null");
+            return;
+        }
+        Log.d(TAG, "captureScreenManually: Acquired an image");
+
+        Bitmap newBitmap = null;
+        HardwareBuffer buffer = image.getHardwareBuffer();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (buffer != null) {
+                newBitmap = Bitmap.wrapHardwareBuffer(buffer, null);
                 if (newBitmap != null) {
-                    latestScreenBitmap = newBitmap;
-                    Log.d(TAG, "Manually captured new screenshot");
+                    Log.d(TAG, "captureScreenManually: Bitmap created from HardwareBuffer");
+                } else {
+                    Log.d(TAG, "captureScreenManually: Bitmap.wrapHardwareBuffer returned null");
+                }
+            } else {
+                Log.d(TAG, "captureScreenManually: HardwareBuffer is null");
+            }
+        } else {
+            Log.d(TAG, "captureScreenManually: SDK version < Q, cannot use HardwareBuffer method");
+        }
+        image.close();
+
+        if (newBitmap != null) {
+            latestScreenBitmap = newBitmap;
+            Log.d(TAG, "Manually captured new screenshot");
+        } else {
+            Log.d(TAG, "captureScreenManually: newBitmap is null after processing");
+        }
+    }
+
+    private void showCustomToast(final String message, final int displayDurationMillis) {
+        // 获取 LayoutInflater
+        LayoutInflater inflater = (LayoutInflater) getApplicationContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        // 加载自定义布局
+        final View layout = inflater.inflate(R.layout.toast_layout, null);
+
+        // 设置文本内容和样式
+        TextView toastText = layout.findViewById(R.id.toast_text);
+        toastText.setText(message);
+        // 若需要进一步调整字体样式可在这里修改
+
+        // 设置图标（如果需要）
+//        ImageView toastIcon = layout.findViewById(R.id.toast_icon);
+//        toastIcon.setImageResource(R.drawable.your_custom_icon); // 替换为你想用的图标
+
+        // 创建 Toast 对象
+        final Toast toast = new Toast(getApplicationContext());
+        toast.setView(layout);
+        toast.setGravity(Gravity.CENTER, 0, 0);
+
+        // 默认 Toast.LENGTH_LONG 大约显示 3500ms
+        final int toastDuration = 5000;
+        final long startTime = System.currentTimeMillis();
+
+        final Handler handler = new Handler(Looper.getMainLooper());
+        Runnable toastRunnable = new Runnable() {
+            @Override
+            public void run() {
+                toast.show();
+                // 如果总显示时间未到，则再次调度显示
+                if (System.currentTimeMillis() - startTime < displayDurationMillis) {
+                    handler.postDelayed(this, toastDuration);
                 }
             }
-        }
+        };
+
+        handler.post(toastRunnable);
     }
 
 
