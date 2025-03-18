@@ -87,6 +87,7 @@ import androidx.camera.video.Recording;
 import androidx.camera.video.VideoCapture;
 import androidx.core.content.ContextCompat;
 import com.example.audioapp.databinding.FragmentFirstBinding;
+import com.example.audioapp.utils.IMURecorder;
 import com.example.audioapp.utils.ModelLoader;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -102,21 +103,11 @@ public class FirstFragment extends Fragment {
     //Motion
     private TextView motionText = null;
 
-    //Acceleration sensor: TYPE_ACCELEROMETER: include gravity
-    private SensorManager mSensorManager;
-    private TextView mSensorText = null;
-    private Sensor mSensor;
-    private SensorData mData = new SensorData();
 
-    //Gyroscope sensor: TYPE_GYROSCOPE
-    private SensorManager mSensorManager2;
-    private Sensor mSensor2;
 
     //CSV file to store data from accelerator and gyroscope
     //    private String[] HEADER = new String[] { "时间", "X方向加速度", "X方向加速度", "X方向加速度",
     //            "accuracy"};
-    private String[] HEADER = new String[] { "Time", "X-acc", "Y-acc", "Z-acc", "Accuracy", "X-Rot", "Y-Rot", "Z-Rot"};
-    private ICsvMapWriter beanWriter = null;
 
     //Recorder and player part
     private TextView phrases;
@@ -171,7 +162,7 @@ public class FirstFragment extends Fragment {
     AssetManager assetManager = null;
     private boolean isMonitoring = false;
     private ActivityResultLauncher<Intent> screenCaptureLauncher, monitoringLauncher;
-
+    private IMURecorder imuRecorder;
 
     static {
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
@@ -190,41 +181,9 @@ public class FirstFragment extends Fragment {
 
 
     // Sensor
-    private SensorEventListener mListener =  new SensorEventListener() {
-        @Override
-        public void onSensorChanged(SensorEvent event) {
-//            System.out.println("x=" + event.values[0]);
-//            System.out.println("y=" + event.values[1]);
-//            System.out.println("z=" + event.values[2]);
-            mData.setX(event.values[0]);
-            mData.setY(event.values[1]);
-            mData.setZ(event.values[2]);
-            updateSensorStateText();
-            //Log.d("sensor", event.sensor.getName());
-        }
 
-        @Override
-        public void onAccuracyChanged(Sensor sensor, int accuracy) {
-            mData.setAccuracy(accuracy);
-            updateSensorStateText();
-        }
-    };
 
-    private SensorEventListener mListener2 =  new SensorEventListener() {
-        @Override
-        public void onSensorChanged(SensorEvent event) {
-            mData.setRotx(event.values[0]);
-            mData.setRoty(event.values[1]);
-            mData.setRotz(event.values[2]);
-            updateSensorStateText();
-            //Log.d("sensor", event.sensor.getName());
-        }
-        @Override
-        public void onAccuracyChanged(Sensor sensor, int accuracy) {
-            mData.setAccuracy(accuracy);
-            updateSensorStateText();
-        }
-    };
+
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -235,16 +194,6 @@ public class FirstFragment extends Fragment {
         //motion
         //setOnTouchListener(new myOnTouchListener());
 
-        //Acceleration sensor
-        mSensorManager = (SensorManager) getActivity().getSystemService(Context.SENSOR_SERVICE);
-        mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-
-        //Gyroscope sensor
-        mSensorManager2 = (SensorManager) getActivity().getSystemService(Context.SENSOR_SERVICE);
-        mSensor2 = mSensorManager2.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
-
-        mSensorManager.registerListener(mListener, mSensor, 50_000);
-        mSensorManager2.registerListener(mListener2, mSensor2, 50_000);
 
 
         //bitmap = BitmapFactory.decodeStream(getResources().openRawResource(R.raw.anger_me));
@@ -285,20 +234,14 @@ public class FirstFragment extends Fragment {
             stopAudioRecording();
         }
 
-//        if(isMonitoring){
-//            Intent serviceIntent = new Intent(getContext(), EmotionMonitoringService.class);
-//            requireContext().stopService(serviceIntent);
-//            //
-//            closeCSVWriter();
-//        }
+
 
         if (cameraExecutor != null) {
             cameraExecutor.shutdown();
             Log.d("cameraExecutor", "cameraExecutor destroyed");
         }
 
-        mSensorManager.unregisterListener(mListener);
-        mSensorManager2.unregisterListener(mListener2);
+
         Log.d("sensor", "sensor destroyed");
     }
 
@@ -367,88 +310,14 @@ public class FirstFragment extends Fragment {
         requireActivity().unregisterReceiver(screenRecordingStateReceiver);
     }
 
-    private void updateSensorStateText()
-    {
-        if (null != mSensorText) {
-            mSensorText.setText(mData.getText());
-            try{
-                writeWithCsvBeanWriter();
-            }catch (Exception exception) {
 
-            }
-        }
-    }
-
-    private static CellProcessor[] getProcessors() {
-        final CellProcessor[] processors = new CellProcessor[] {
-                new NotNull(), // 时间
-                new NotNull(), // x加速度
-                new NotNull(), // y加速度
-                new NotNull(), // z加速度
-                new NotNull(), // accuracy
-                new NotNull(), //x rotation
-                new NotNull(), //y rotation
-                new NotNull()  //z rotation
-        };
-
-        return processors;
-    }
-
-    private void initCSVFile(String fileName)
-    {
-        //File file = new File(fileName +".csv");
-        File file = new File(fileName);
-        try{
-            if (!file.exists()) {
-                file.createNewFile();
-            }
-            final CellProcessor[] processors = getProcessors();
-
-            // write the header
-            //beanWriter = new CsvMapWriter(new FileWriter(fileName +".csv"),
-            beanWriter = new CsvMapWriter(new FileWriter(fileName),
-                    CsvPreference.STANDARD_PREFERENCE);
-            beanWriter.writeHeader(HEADER);
-        }catch (IOException exception) {
-
-        }
-    }
-
-    private void writeWithCsvBeanWriter() throws Exception {
-        try {
-            final CellProcessor[] processors = getProcessors();
-            Map<String,String> map = new HashMap<>();
-            SimpleDateFormat formater = new SimpleDateFormat(FILENAME_FORMAT);
-            map.put(HEADER[0],formater.format(new Date()));
-            map.put(HEADER[1], String.valueOf(mData.getX()));
-            map.put(HEADER[2], String.valueOf(mData.getY()));
-            map.put(HEADER[3], String.valueOf(mData.getZ()));
-            map.put(HEADER[4], String.valueOf(mData.getAccuracy()));
-            map.put(HEADER[5], String.valueOf(mData.getRotx()));
-            map.put(HEADER[6], String.valueOf(mData.getRoty()));
-            map.put(HEADER[7], String.valueOf(mData.getRotz()));
-            beanWriter.write(map, HEADER, processors);
-        }
-        finally {
-        }
-    }
-
-    private void closeCSVWriter() {
-        if( beanWriter != null ) {
-            try{
-                beanWriter.close();
-            }catch (Exception exception) {
-
-            }
-        }
-    }
 
     @SuppressLint("SetTextI18n")
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         Log.e(TAG, "onViewCreated:");
 
-
+        imuRecorder = new IMURecorder(requireContext());
         FileUtil.setBasePath(getActivity().getExternalFilesDir(null).toString());
         view.setOnTouchListener(new myOnTouchListener());
 
@@ -460,7 +329,6 @@ public class FirstFragment extends Fragment {
 //        mSensorManager2 = (SensorManager) getActivity().getSystemService(Context.SENSOR_SERVICE);
 //        mSensor2 = mSensorManager2.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         motionText = view.findViewById(R.id.textView2);
-        mSensorText = view.findViewById(R.id.textview_first);
         mAudioRecorder = AudioRecorder.getInstance();
         start = view.findViewById(R.id.start);
         pause = view.findViewById(R.id.pause);
@@ -512,6 +380,9 @@ public class FirstFragment extends Fragment {
                         serviceIntent.putExtra("resultCode", result.getResultCode());
                         serviceIntent.putExtra("resultData", data);
                         requireContext().startService(serviceIntent);
+                        //IMU
+                        String fileName = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+                        imuRecorder.startRecording(FileUtil.getCSVFileAbsolutePath(fileName));
                         // 修改界面
                         isMonitoring = true;
                         monitorButton.setText("stop monitoring");
@@ -751,14 +622,16 @@ public class FirstFragment extends Fragment {
 //                        start.setText("停止录音");
                         start.setText("Stop audio rec");
 //                        pause.setVisibility(View.VISIBLE);
-                        initCSVFile(FileUtil.getCSVFileAbsolutePath(fileName));
+
+                        // IMU
+                        imuRecorder.startRecording(FileUtil.getCSVFileAbsolutePath(fileName));
                         Log.d("encheck", "after click2: "+mAudioRecorder.getStatus());
                     } else {
                         Log.d("encheck", "stop1: "+mAudioRecorder.getStatus());
                         pause.setEnabled(false);
                         //停止录音
                         mAudioRecorder.stopRecord();
-                        closeCSVWriter();
+                        imuRecorder.stopRecording();
 //                        start.setText("开始录音");
 //                        pause.setText("暂停录音");
                         start.setText("Audio Rec");
@@ -901,11 +774,11 @@ public class FirstFragment extends Fragment {
             @Override
             public void onClick(View view) {
                 if (!isMonitoring) {
-                    String fileName = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+
                     // 使用 monitoringLauncher 启动屏幕录制权限请求，后续回调中会启动 EmotionMonitoringService
                     Intent captureIntent = mediaProjectionManager.createScreenCaptureIntent();
                     monitoringLauncher.launch(captureIntent);
-                    initCSVFile(FileUtil.getCSVFileAbsolutePath(fileName));
+
                     // 此处 isMonitoring 状态可在回调中设置，或者你也可以在点击后就设置为 true
 
                 } else {
@@ -913,7 +786,7 @@ public class FirstFragment extends Fragment {
                     Intent serviceIntent = new Intent(getContext(), EmotionMonitoringService.class);
                     requireContext().stopService(serviceIntent);
                     //
-                    closeCSVWriter();
+                    imuRecorder.stopRecording();
                     monitorButton.setText("monitor");
                     isMonitoring = false;
                 }
@@ -1010,13 +883,13 @@ public class FirstFragment extends Fragment {
         mAudioRecorder.createDefaultAudio(fileName);
         mAudioRecorder.startRecord(null);
         //start.setText("Stop Recording");
-        initCSVFile(FileUtil.getCSVFileAbsolutePath(fileName));
+        imuRecorder.startRecording(FileUtil.getCSVFileAbsolutePath(fileName));
     }
 
     private void stopAudioRecording() {
         // 停止音频录制
         mAudioRecorder.stopRecord();
-        closeCSVWriter();
+        imuRecorder.stopRecording();
         start.setText("audio Rec");
         pause.setText("Pause Rec");
         String msg = "AudioRecording success:" + mAudioRecorder.getFilename();
@@ -1095,50 +968,9 @@ public class FirstFragment extends Fragment {
                 }
         );
     }
-//    private void compressVideo(String inputFilePath, String outputFilePath) {
-//        String command = "-i " + inputFilePath + " -c:v mpeg4  -b:v 500k -vf scale=640:-2 -r 5 " + outputFilePath;
-//        Log.d("FFmpegCommand", "Command: " + command);
-//        FFmpegKit.executeAsync(command, session -> {
-//            if (session.getReturnCode().isValueSuccess()) {
-//                File originalFile = new File(inputFilePath);
-//                if (originalFile.exists()) {
-//                    boolean isDeleted = originalFile.delete();
-//                    if (isDeleted) {
-//                        Log.d("VideoCompression", "Original video deleted successfully.");
-//                    } else {
-//                        Log.e("VideoCompression", "Failed to delete the original video.");
-//                    }
-//                }
-//                // 切换到主线程显示成功消息
-//                requireActivity().runOnUiThread(() -> {
-//                    Toast.makeText(requireContext(), "Video compression succeeded!", Toast.LENGTH_SHORT).show();
-//                });
-//
-//            } else {
-//                // 切换到主线程显示失败消息
-//                String errorLog = session.getOutput();
-//                Log.e("FFmpegError", "Command failed: " + errorLog);
-//                requireActivity().runOnUiThread(() ->
-//                        Toast.makeText(requireContext(), "Video compression failed: " + errorLog, Toast.LENGTH_SHORT).show()
-//                );
-//            }
-//        });
-//    }
 
-    private String getFilePathFromUri(Uri uri) {
-        String filePath = null;
-        String[] projection = {MediaStore.Video.Media.DATA};
 
-        try (Cursor cursor = requireContext().getContentResolver().query(uri, projection, null, null, null)) {
-            if (cursor != null && cursor.moveToFirst()) {
-                int columnIndex = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA);
-                filePath = cursor.getString(columnIndex);
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error getting file path from Uri: " + e.getMessage());
-        }
-        return filePath;
-    }
+
 
     
     @SuppressLint("RestrictedApi")
@@ -1240,54 +1072,13 @@ public class FirstFragment extends Fragment {
         }
     }
     // Helper function to get the asset file path
-    // Helper function to get the asset file path
-    // Helper function to get the asset file path for loading models
-
-
-    // Helper function to get the resource ID dynamically based on asset name
-
-
-    private class LuminosityAnalyzer implements ImageAnalysis.Analyzer {
-
-        private final LumaListener listener;
-
-        public LuminosityAnalyzer(LumaListener listener) {
-            this.listener = listener;
-        }
-
-        private byte[] toByteArray(ByteBuffer buffer) {
-            buffer.rewind(); // Rewind the buffer to zero
-            byte[] data = new byte[buffer.remaining()];
-            buffer.get(data); // Copy the buffer into a byte array
-            return data; // Return the byte array
-        }
-
-        @Override
-        public void analyze(@NonNull ImageProxy image) {
-            ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-            byte[] data = toByteArray(buffer);
-
-            // Convert byte array to int list and calculate average luminosity
-            List<Integer> pixels = new ArrayList<>();
-            for (byte b : data) {
-                pixels.add(b & 0xFF);
-            }
-            double luma = pixels.stream().mapToInt(Integer::intValue).average().orElse(0);
-
-            // Call the listener with the calculated luminosity
-            listener.onLumaCalculated(luma);
-
-            image.close();
-        }
-
-
-    }
 
 
 
 
-    public interface LumaListener {
-        void onLumaCalculated(double luma);
-    }
+
+
+
+
 
 }

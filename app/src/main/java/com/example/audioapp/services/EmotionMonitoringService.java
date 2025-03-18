@@ -34,7 +34,6 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -60,7 +59,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
@@ -383,7 +381,7 @@ public class EmotionMonitoringService extends Service {
 
                                     // 检测是否存在异常（例如：v）
 
-                                    if (isNegativeAbnormal(captureBuffer)) {
+                                    if (isNegativeAbnormal()) {
                                         long currentTime = System.currentTimeMillis();
                                         if (currentTime - lastAbnormalTime >= ABNORMAL_COOLDOWN_MS) {
                                             lastAbnormalTime = currentTime;
@@ -441,8 +439,8 @@ public class EmotionMonitoringService extends Service {
 
 
 
-    private boolean isNegativeAbnormal(List<CapturedData> captureBuffer) {
-        if (captureBuffer.size() < WINDOW_SAMPLES_NUM) {
+    private boolean isNegativeAbnormal() {
+        if (EmotionMonitoringService.captureBuffer.size() < WINDOW_SAMPLES_NUM) {
             // 数据不足
             return false;
         }
@@ -455,35 +453,39 @@ public class EmotionMonitoringService extends Service {
         // Step 2: 计算基线
         BaselineCalculator.BaselineStats baseline = BaselineCalculator.computeBaseline(globalHistory);
 
-        int total = captureBuffer.size();
+        int total = EmotionMonitoringService.captureBuffer.size();
         int negativeCount = 0;
+        int farFromBaselineCount = 0;
 
 
         // Step 3: 判断短期窗口是否偏离基线
         float sumArousal = 0, sumValence = 0;
-        for (CapturedData data : captureBuffer) {
+        for (CapturedData data : EmotionMonitoringService.captureBuffer) {
             float arousal = data.avValues[0];  // 唤醒度
             float valence = data.avValues[1];  // 愉悦程度
-            // 计算平均
-            sumArousal += data.avValues[0];
-            sumValence += data.avValues[1];
+
             // 定义负面情绪判断（这里以愤怒为例，你可以扩展更多情绪的判断）
             boolean isAngry = (valence < ANGER_VALENCE_THRESHOLD && arousal > ANGER_AROUSAL_THRESHOLD);
-            boolean isSad = (valence < -0.5 && arousal < -0.2);
+            boolean isSad = (valence < -0.35 && arousal < -0.1);
 
             boolean isNegative = isAngry|| isSad;
             if (isNegative) {
                 negativeCount++;
             }
-        }
-        float avgArousal = sumArousal / captureBuffer.size();
-        float avgValence = sumValence / captureBuffer.size();
 
-        // Step 3.1 判断与基线的差异（Z-score 或差值）
-        float zArousal = (avgArousal - baseline.avgArousal) / (baseline.stdArousal + 1e-5f);
-        float zValence = (avgValence - baseline.avgValence) / (baseline.stdValence + 1e-5f);
+            // 方差计算
+            // Step 3.1 判断与基线的差异（Z-score 或差值）
+            float zArousal = (arousal - baseline.avgArousal) / (baseline.stdArousal + 1e-5f);
+            float zValence = (valence - baseline.avgValence) / (baseline.stdValence + 1e-5f);
+            if((Math.abs(zArousal) > AROUSAL_Z_SCORE_THRESHOLD || Math.abs(zValence) > VALENCE_Z_SCORE_THRESHOLD)){
+                farFromBaselineCount++;
+            }
+        }
+
+
+
         // 如果 arousal、valence 在基线的 1~2 个标准差之外，说明有显著波动
-        boolean isFarFromBaseline = (Math.abs(zArousal) > AROUSAL_Z_SCORE_THRESHOLD || Math.abs(zValence) > VALENCE_Z_SCORE_THRESHOLD);
+
 
 
         // Step 3.2 根据情绪圆环阈值判断是否属于负面区域
@@ -492,11 +494,11 @@ public class EmotionMonitoringService extends Service {
 
         // 方案2：判断整体窗口中负面采样比例是否超过阈值
         boolean negativeRatioCondition = ((float) negativeCount / total) >= NEGATIVE_RATIO_THRESHOLD;
-
+        boolean isFarFromBaseline = ((float) farFromBaselineCount / total) >= NEGATIVE_RATIO_THRESHOLD;
         // 你可以继续定义其他情绪阈值，比如烦躁、悲伤等
         // ...
         // 方案3，如果是在笑，就舍弃
-        boolean isHappy = captureBuffer.get(3).avValues[1] > 0.15 || captureBuffer.get(4).avValues[1] > 0.15;
+        boolean isHappy = EmotionMonitoringService.captureBuffer.get(3).avValues[1] > 0.15 || EmotionMonitoringService.captureBuffer.get(4).avValues[1] > 0.15;
 
         // 最终逻辑：若显著偏离基线 并且 落入负面情绪区域，就认为异常
         return (isFarFromBaseline && negativeRatioCondition) && !isHappy;

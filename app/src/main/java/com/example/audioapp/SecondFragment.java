@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.media.projection.MediaProjectionManager;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -28,7 +29,9 @@ import androidx.fragment.app.Fragment;
 import com.example.audioapp.services.EmotionMonitoringService;
 import com.example.audioapp.utils.ChatGptHelper;
 import com.example.audioapp.utils.FileUtil;
+import com.example.audioapp.utils.IMURecorder;
 
+import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -41,6 +44,7 @@ public class SecondFragment extends Fragment {
 
 
     private ActivityResultLauncher<Intent> monitoringLauncher;
+    private IMURecorder imuRecorder;
 
 
 
@@ -84,6 +88,7 @@ public class SecondFragment extends Fragment {
     }
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        FirstFragment.verifyPermissions(getActivity());
 
         monitorButton = view.findViewById(R.id.btn_monitor);
         GptTestButton = view.findViewById(R.id.btn_Gpt);
@@ -92,6 +97,7 @@ public class SecondFragment extends Fragment {
         View layout = LayoutInflater.from(requireContext()).inflate(R.layout.toast_layout, null);
         TextView text = layout.findViewById(R.id.toast_text);
 
+        imuRecorder = new IMURecorder(requireContext());
         // 新建一个用于监测的 launcher
         monitoringLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
@@ -108,6 +114,15 @@ public class SecondFragment extends Fragment {
                         // 修改界面
                         isMonitoring = true;
                         monitorButton.setText("stop monitoring");
+                        // IMU
+                        String fileName = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+                        File csvDir = requireContext().getApplicationContext().getExternalFilesDir("csv");
+                        if (csvDir != null && !csvDir.exists()) {
+                            csvDir.mkdirs();
+                        }
+                        String filePath = new File(csvDir, fileName + ".csv").getAbsolutePath();
+                        imuRecorder.startRecording(filePath);
+
                         Log.d(TAG, "Monitoring service started: " + serviceIntent.toString());
                     } else {
                         Toast.makeText(getContext(), "屏幕录制权限未授权", Toast.LENGTH_SHORT).show();
@@ -120,11 +135,11 @@ public class SecondFragment extends Fragment {
             @Override
             public void onClick(View view) {
                 if (!isMonitoring) {
-                    String fileName = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+
                     // 使用 monitoringLauncher 启动屏幕录制权限请求，后续回调中会启动 EmotionMonitoringService
                     Intent captureIntent = mediaProjectionManager.createScreenCaptureIntent();
                     monitoringLauncher.launch(captureIntent);
-                    //initCSVFile(FileUtil.getCSVFileAbsolutePath(fileName));
+
                     // 此处 isMonitoring 状态可在回调中设置，或者你也可以在点击后就设置为 true
 
                 } else {
@@ -135,6 +150,7 @@ public class SecondFragment extends Fragment {
                     //closeCSVWriter();
                     monitorButton.setText("monitor");
                     isMonitoring = false;
+                    imuRecorder.stopRecording();
                 }
             }
         });
