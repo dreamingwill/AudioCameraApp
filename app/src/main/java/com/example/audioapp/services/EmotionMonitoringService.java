@@ -78,7 +78,6 @@ public class EmotionMonitoringService extends Service {
     // 定义一些阈值和最小采样数量
     private static final int WINDOW_SAMPLES_NUM = 5; // 窗口长度5条数据
     private static final int HISTORY_LEAST_SAMPLES_NUM = 50; // 至少300个历史数据再记录
-    private static final int HISTORY_MOST_SAMPLES_NUM = 120; // 最大记录
     private static final int MIN_RECENT_SAMPLES = 3;        // 至少需要3个采样点
     private static final float AROUSAL_STD_THRESHOLD = 0.12f; // 激活度标准差阈值
     private static final float VALENCE_STD_THRESHOLD = 0.12f; // 情绪价值标准差阈值
@@ -388,6 +387,7 @@ public class EmotionMonitoringService extends Service {
                                             Log.d(TAG, "captureAndProcess: Negative emotion detected!");
                                             Toast.makeText(getApplicationContext(), "检测到负面情绪异常", Toast.LENGTH_SHORT).show();
                                             saveAbnormalData();
+                                            String replyStr;
 
                                             File csvFile = new File(getExternalFilesDir(Environment.DIRECTORY_ALARMS + "/GlobalHistory"), "av_record_globalHistory.csv");
                                             GlobalHistory.saveToCSV(csvFile);
@@ -407,7 +407,7 @@ public class EmotionMonitoringService extends Service {
                                                                 toast.show();
                                                                 Log.d(TAG, "onSuccess: "+reply);
                                                                 // 额外延长显示时间
-                                                                //new Handler(Looper.getMainLooper()).postDelayed(toast::show, 1000); // 额外延长 3.5 秒
+                                                                new Handler(Looper.getMainLooper()).postDelayed(toast::show, 1000); // 额外延长 3.5 秒
                                                             });
                                                         }
                                                         @Override
@@ -656,6 +656,9 @@ public class EmotionMonitoringService extends Service {
 
         handler.post(toastRunnable);
     }
+
+
+
 
 
 }

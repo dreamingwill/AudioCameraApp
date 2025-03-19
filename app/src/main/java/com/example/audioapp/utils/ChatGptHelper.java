@@ -35,9 +35,9 @@ public class ChatGptHelper {
 
     // 系统提示：专业、友善的游戏心理辅导助手
     private static final String SYSTEM_PROMPT = "你是一位专业的游戏心理辅导助手,擅长分析游戏玩家的心理状态和行为模式。你的主要职责是:\n" +
-            "1. 通过游戏截图分析玩家的游戏表现和失败原因\n" +
+            "1. 通过游戏截图分析玩家的游戏表现和游戏状况\n" +
             "2. 基于玩家的情绪数据提供个性化的心理支持\n" +
-            "3. 给出具有建设性的游戏建议,帮助玩家重建信心\n" +
+            "3. 给出具有建设性的游戏建议,帮助玩家重建信心,不要提及“下一次”，“换个游戏”等建议，要专注现在。\n" +
             "4. 用温和幽默的方式缓解玩家的负面情绪\n" +
             "5. 请你提及玩家正在玩的游戏内容或情况（重要）\n" +
             "请以专业、友善且富有同理心的态度与玩家互动。\n回复不多于15个汉字";
@@ -73,7 +73,7 @@ public class ChatGptHelper {
             // 如果需要对 timestamp 做格式化，可以根据需求转换为具体时间格式，这里直接输出数字
             promptBuilder.append(String.format("(%.2f,%.2f),", data.avValues[0],data.avValues[1]));
         }
-        promptBuilder.append("\n请用简短温和幽默的语言，给出安抚建议,不多于15个汉字。");
+        promptBuilder.append("\n请用简短温和幽默的语言，给出安抚建议,不多于20个汉字。");
         String promptText = promptBuilder.toString();
 
         // 构建用户消息内容，使用 JSON 数组形式

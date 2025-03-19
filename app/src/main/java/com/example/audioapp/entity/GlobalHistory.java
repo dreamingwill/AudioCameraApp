@@ -18,7 +18,7 @@ public class GlobalHistory {
     private static final String TAG = "GlobalHistory";
     // 可以放在单例、Application 或者数据库中，这里简单用静态 List 演示
     private static final List<CapturedData> globalVAList = new ArrayList<>();
-    private static final int HISTORY_MOST_SAMPLES_NUM =120;
+    private static final int HISTORY_MOST_SAMPLES_NUM =240;
 
     // 更新全局历史
     public static synchronized void updateGlobalHistory(CapturedData newData) {

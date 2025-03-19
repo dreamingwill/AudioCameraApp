@@ -6,6 +6,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.media.projection.MediaProjectionManager;
 import android.os.Bundle;
@@ -70,6 +71,7 @@ public class SecondFragment extends Fragment {
         toggleOrientationButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                showLongDurationToast(requireContext(),"换",10_000);
                 if (getActivity() != null) {
                     if (isLandscape) {
                         // 切换为竖屏
@@ -91,6 +93,14 @@ public class SecondFragment extends Fragment {
         FirstFragment.verifyPermissions(getActivity());
 
         monitorButton = view.findViewById(R.id.btn_monitor);
+        // 根据持久化的状态更新按钮文字
+        isMonitoring = getMonitoringState();
+        if (isMonitoring) {
+            monitorButton.setText("stop monitoring");
+        } else {
+            monitorButton.setText("monitor");
+        }
+
         GptTestButton = view.findViewById(R.id.btn_Gpt);
         mediaProjectionManager = (MediaProjectionManager) requireActivity().getSystemService(Context.MEDIA_PROJECTION_SERVICE);
         Toast toast = new Toast(requireContext());
@@ -112,6 +122,7 @@ public class SecondFragment extends Fragment {
                         serviceIntent.putExtra("resultData", data);
                         requireContext().startService(serviceIntent);
                         // 修改界面
+                        setMonitoringState(true);  // 保存状态
                         isMonitoring = true;
                         monitorButton.setText("stop monitoring");
                         // IMU
@@ -148,6 +159,7 @@ public class SecondFragment extends Fragment {
                     requireContext().stopService(serviceIntent);
                     //
                     //closeCSVWriter();
+                    setMonitoringState(false); // 保存状态
                     monitorButton.setText("monitor");
                     isMonitoring = false;
                     imuRecorder.stopRecording();
@@ -169,16 +181,17 @@ public class SecondFragment extends Fragment {
 
                                 // 在主线程中更新 UI，可使用 Handler 切换
                                 new Handler(Looper.getMainLooper()).post(() -> {
-//                                    Toast toast = Toast.makeText(requireContext(), reply, Toast.LENGTH_LONG);
-//                                    toast.show();
-                                    text.setText(reply);
-                                    toast.setView(layout);
-                                    toast.setDuration(Toast.LENGTH_LONG); // 虽然系统限制，但部分设备可能忽略
+                                    Toast toast = Toast.makeText(requireContext(), reply, Toast.LENGTH_LONG);
+                                    toast.show();                                    //showLongDurationToast(requireContext(),reply,10_000);
 
-                                    toast.show();
-                                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                                        toast.cancel(); // 强制关闭 Toast
-                                    }, 10000); // 10 秒后关闭
+//                                    text.setText(reply);
+//                                    toast.setView(layout);
+//                                    toast.setDuration(Toast.LENGTH_LONG); // 虽然系统限制，但部分设备可能忽略
+//
+//                                    toast.show();
+//                                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
+//                                        toast.cancel(); // 强制关闭 Toast
+//                                    }, 10000); // 10 秒后关闭
                                     Log.d(TAG, "onSuccess: "+reply);
                                     // 额外延长显示时间
                                     new Handler(Looper.getMainLooper()).postDelayed(toast::show, 1000); // 额外延长 3.5 秒
@@ -197,6 +210,36 @@ public class SecondFragment extends Fragment {
 
             }
         });
+    }
+    public static void showLongDurationToast(final Context context, final String message, final int durationInMillis) {
+        final Toast toast = Toast.makeText(context, message, Toast.LENGTH_LONG);
+        // 默认 Toast.LENGTH_LONG 大约显示 3500 毫秒
+        final int toastDurationInMilliSeconds = 3000;
+        final long startTime = System.currentTimeMillis();
+        final Handler handler = new Handler(Looper.getMainLooper());
+
+        // 使用 Runnable 反复显示 Toast
+        Runnable showToastRunnable = new Runnable() {
+            @Override
+            public void run() {
+                toast.show();
+                if (System.currentTimeMillis() - startTime < durationInMillis) {
+                    // 延迟一定时间后再次显示
+                    handler.postDelayed(this, toastDurationInMilliSeconds);
+                }
+            }
+        };
+        handler.post(showToastRunnable);
+    }
+
+    private void setMonitoringState(boolean isMonitoring) {
+        SharedPreferences prefs = requireContext().getSharedPreferences("monitor_prefs", Context.MODE_PRIVATE);
+        prefs.edit().putBoolean("isMonitoring", isMonitoring).apply();
+    }
+
+    private boolean getMonitoringState() {
+        SharedPreferences prefs = requireContext().getSharedPreferences("monitor_prefs", Context.MODE_PRIVATE);
+        return prefs.getBoolean("isMonitoring", false);
     }
 
 }

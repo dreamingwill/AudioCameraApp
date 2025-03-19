@@ -73,23 +73,7 @@ public class FaceDetectorHelper {
                 });
     }
 
-    // 计算遮挡分数的具体方法
-    private static boolean isFaceOccluded(Face face) {
-        // 获取所有面部关键点（包含68个标准点）
-        List<FaceLandmark> landmarks = face.getAllLandmarks();
 
-        // 需要重点监测的核心关键点类型
-        int[] crucialLandmarks = {
-                FaceLandmark.LEFT_EYE,
-                FaceLandmark.RIGHT_EYE,
-                FaceLandmark.NOSE_BASE,
-                FaceLandmark.MOUTH_LEFT,
-                FaceLandmark.MOUTH_RIGHT
-        };
-
-        // 双重验证策略：总有效点 + 核心关键点
-        return !hasEnoughValidPoints(landmarks) || missingCrucialPoints(face, crucialLandmarks);
-    }
 
     // 验证有效关键点数量
     private static boolean hasEnoughValidPoints(List<FaceLandmark> landmarks) {
