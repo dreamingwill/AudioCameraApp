@@ -40,7 +40,7 @@ public class ChatGptHelper {
             "3. 给出具有建设性的游戏建议,帮助玩家重建信心,不要提及“下一次”，“换个游戏”等建议，要专注现在。\n" +
             "4. 用温和幽默的方式缓解玩家的负面情绪\n" +
             "5. 请你提及玩家正在玩的游戏内容或情况（重要）\n" +
-            "请以专业、友善且富有同理心的态度与玩家互动。\n回复不多于15个汉字";
+            "请以专业、友善且富有同理心的态度与玩家互动。\n回复不多于20个汉字";
 
     // 任务提示模板：只使用 CapturedData 中的信息
     // 其中 avValues[0] 为 arousal，avValues[1] 为 valence
@@ -48,6 +48,28 @@ public class ChatGptHelper {
             "激活程度(Arousal): %.2f\n" +
             "情绪价值(Valence): %.2f\n" +
             "\n请用简短温和幽默的语言，给出安抚建议。";
+
+    private static final String TASK_PROMPT =
+            "玩家状态分析:\n" +
+                    "针对[王者荣耀/金铲铲等]的游戏场景,请:\n" +
+                    "1. 简要分析当前出现问题的原因,重点关注可改进空间\n" +
+                    "2. 给出具体、可操作的游戏技巧建议\n" +
+                    "3. 用轻松幽默的方式安慰玩家,缓解压力\n\n" +
+
+                    "温馨提示风格参考:\n" +
+                    "\"补刀不准没关系,你的价值不在发育上\"\n" +
+                    "\"团战失误很正常,下次记得跟着节奏走\"\n" +
+                    "\"装备落后不要紧,运营节奏才是关键\"\n" +
+                    "\"技能空了别着急,关键时刻还能留着\"\n\n" +
+
+                    "输入：\n" +
+                    "输入还包含几帧图片，请分析图片内容，根据玩家当前的一些场况和潜在问题，给出建议\n\n" +
+
+                    "输出要求:\n" +
+                    "- 使用亲切的第二人称, 首先紧扣游戏画面内容分析游戏的情况，然后给出建议\n" +
+                    "- 控制在20字以内,用一段话表示\n" +
+                    "- 语气温和且富有建设性\n" +
+                    "- 别提到任何有关截图的事情，只分析单局游戏情况\n";
 
     private final OkHttpClient client;
 
@@ -67,7 +89,7 @@ public class ChatGptHelper {
         // 根据 CapturedData 构建文本提示
         // 构建描述每个采样点情绪数据的文本
         StringBuilder promptBuilder = new StringBuilder();
-        promptBuilder.append("以下是玩家近5秒内每个时刻的情绪数据：\n(Arousal,Valence):");
+        promptBuilder.append(TASK_PROMPT+"以下是玩家近5秒内每个时刻的情绪数据：\n(Arousal,Valence):");
 
         for (CapturedData data : captureBuffer) {
             // 如果需要对 timestamp 做格式化，可以根据需求转换为具体时间格式，这里直接输出数字

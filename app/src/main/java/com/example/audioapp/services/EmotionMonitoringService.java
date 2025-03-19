@@ -7,6 +7,7 @@ import com.example.audioapp.utils.ModelLoader;
 import com.example.audioapp.R;
 import com.example.audioapp.entity.CapturedData;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -54,8 +55,10 @@ import com.example.audioapp.utils.ChatGptHelper;
 import com.example.audioapp.utils.YuvToRgbConverter;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
@@ -82,8 +85,8 @@ public class EmotionMonitoringService extends Service {
     private static final float AROUSAL_STD_THRESHOLD = 0.12f; // 激活度标准差阈值
     private static final float VALENCE_STD_THRESHOLD = 0.12f; // 情绪价值标准差阈值
 
-    private static final float AROUSAL_Z_SCORE_THRESHOLD = 1.0f; // 激活度标准差阈值
-    private static final float VALENCE_Z_SCORE_THRESHOLD = 1.0f; // 情绪价值标准差阈值
+    private static final float AROUSAL_Z_SCORE_THRESHOLD = 1.3f; // 激活度标准差阈值
+    private static final float VALENCE_Z_SCORE_THRESHOLD = 1.3f; // 情绪价值标准差阈值
     private static final float NEGATIVE_RATIO_THRESHOLD = 0.3f; // 窗口中负面采样占比阈值0.3
     private static final float ANGER_VALENCE_THRESHOLD = -0.25f;
     private static final float ANGER_AROUSAL_THRESHOLD = 0.3f;
@@ -400,7 +403,9 @@ public class EmotionMonitoringService extends Service {
                                                     new ChatGptHelper.ChatGptCallback() {
                                                         @Override
                                                         public void onSuccess(String reply) {
-
+                                                            // 记录成功回复
+                                                            long timestamp = System.currentTimeMillis();
+                                                            logReplyToFile(timestamp, reply);
                                                             // 在主线程中更新 UI，可使用 Handler 切换
                                                             new Handler(Looper.getMainLooper()).post(() -> {
                                                                 Toast toast = Toast.makeText(getApplicationContext(), reply, Toast.LENGTH_LONG);
@@ -412,9 +417,12 @@ public class EmotionMonitoringService extends Service {
                                                         }
                                                         @Override
                                                         public void onFailure(String error) {
+                                                            // 记录失败信息
+                                                            long timestamp = System.currentTimeMillis();
+                                                            logReplyToFile(timestamp, "Failed to get response: " + error);
                                                             new Handler(Looper.getMainLooper()).post(() -> {
                                                                 //showCustomToast(error,5000);
-                                                                Toast.makeText(getApplicationContext(), "Failed to get response: " + error, Toast.LENGTH_SHORT).show();
+                                                                //Toast.makeText(getApplicationContext(), "Failed to get response: " + error, Toast.LENGTH_SHORT).show();
                                                                 Log.e(TAG, "onFailure: Failed to get response:" + error );
                                                             });
                                                         }
@@ -504,7 +512,16 @@ public class EmotionMonitoringService extends Service {
         return (isFarFromBaseline && negativeRatioCondition) && !isHappy;
     }
 
-
+    @SuppressLint("SimpleDateFormat")
+    private void logReplyToFile(long timestamp, String message) {
+        File logFile = new File(getExternalFilesDir(Environment.DIRECTORY_ALARMS + "/GlobalHistory"), "chatgpt_replies.txt");
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(logFile, true))) {
+            writer.write(new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date(timestamp)) + " - " + message);
+            writer.newLine();
+        } catch (IOException e) {
+            Log.e(TAG, "Error writing to log file", e);
+        }
+    }
 
     // 将缓冲区内（最近30条）的照片和 V-A 值记录保存下来
     private void saveAbnormalData() {

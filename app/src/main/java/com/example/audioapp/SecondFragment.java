@@ -71,7 +71,7 @@ public class SecondFragment extends Fragment {
         toggleOrientationButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                showLongDurationToast(requireContext(),"换",10_000);
+
                 if (getActivity() != null) {
                     if (isLandscape) {
                         // 切换为竖屏
