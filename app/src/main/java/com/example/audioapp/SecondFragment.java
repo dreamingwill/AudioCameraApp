@@ -127,7 +127,7 @@ public class SecondFragment extends Fragment {
                         monitorButton.setText("stop monitoring");
                         // IMU
                         String fileName = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-                        File csvDir = requireContext().getApplicationContext().getExternalFilesDir("csv");
+                        File csvDir = requireContext().getApplicationContext().getExternalFilesDir("imu");
                         if (csvDir != null && !csvDir.exists()) {
                             csvDir.mkdirs();
                         }

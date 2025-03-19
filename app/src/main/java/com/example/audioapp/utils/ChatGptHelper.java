@@ -31,9 +31,12 @@ public class ChatGptHelper {
     // 请替换为你的实际 API 密钥和 API 端点
     private static final String API_KEY = BuildConfig.OPENAI_BASE_KEY_2;
     private static final String API_URL = BuildConfig.OPENAI_BASE_URL_2;
+    private static final String MODEL_NAME = "grok-2-vision-1212"; //grok-2-vision-1212,grok-3
     private static final MediaType JSON_MEDIA_TYPE = MediaType.get("application/json; charset=utf-8");
 
     // 系统提示：专业、友善的游戏心理辅导助手
+
+    // 分游戏选用不同的prompt
     private static final String SYSTEM_PROMPT = "你是一位专业的游戏心理辅导助手,擅长分析游戏玩家的心理状态和行为模式。你的主要职责是:\n" +
             "1. 通过游戏截图分析玩家的游戏表现和游戏状况\n" +
             "2. 基于玩家的情绪数据提供个性化的心理支持\n" +
@@ -108,7 +111,8 @@ public class ChatGptHelper {
             contentArray.put(textObj);
 
             // 第二项：图片数据，使用 CapturedData 的 screenBitmap
-            int[] indicesToSend = {0, 2, 4};
+            // 裁剪 2000*768以内
+            int[] indicesToSend = {0, 1, 2, 3, 4,};
             for (int idx : indicesToSend) {
                 if (captureBuffer.size() > idx) {
                     CapturedData data = captureBuffer.get(idx);
@@ -153,7 +157,7 @@ public class ChatGptHelper {
         // 构建请求体
         JSONObject jsonBody = new JSONObject();
         try {
-            jsonBody.put("model", "gpt-4o-mini");  // 根据实际情况调整模型名称
+            jsonBody.put("model", MODEL_NAME);  // 根据实际情况调整模型名称
             jsonBody.put("messages", messagesArray);
             jsonBody.put("temperature", 0.7);
         } catch (JSONException e) {
@@ -204,6 +208,7 @@ public class ChatGptHelper {
      * @param bitmap 要转换的 Bitmap
      * @return data URL 字符串
      */
+    // 压缩，resize一下。改成png试试。
     private String bitmapToDataUrl(Bitmap bitmap, int quality) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         // 可根据需求调整压缩质量

@@ -2,22 +2,16 @@
 <project version="4">
   <component name="deploymentTargetSelector">
     <selectionStates>
-      <SelectionState runConfigName="Sonic">
-        <option name="selectionMode" value="DROPDOWN" />
-      </SelectionState>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-03-16T15:27:35.932894100Z">
+        <DropdownSelection timestamp="2025-03-05T13:02:40.127398Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="PhysicalDevice" identifier="serial=10AD19124Y001HF" />
+              <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\ZRH\.android\avd\Medium_Phone_API_35.avd" />
             </handle>
           </Target>
         </DropdownSelection>
         <DialogSelection />
-      </SelectionState>
-      <SelectionState runConfigName="ExampleInstrumentedTest">
-        <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
     </selectionStates>
   </component>

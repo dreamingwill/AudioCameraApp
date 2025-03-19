@@ -10,7 +10,7 @@ if (localFile.exists()) {
 }
 
 android {
-    compileSdkVersion 31
+    compileSdk 31
     buildToolsVersion "30.0.3"
 
     defaultConfig {
@@ -30,6 +30,8 @@ android {
         buildConfigField "String", "OPENAI_API_URL", "\"${localProperties.getProperty("OPENAI_API_URL")}\""
         buildConfigField "String", "OPENAI_BASE_URL_2", "\"${localProperties.getProperty("OPENAI_BASE_URL_2")}\""
         buildConfigField "String", "OPENAI_BASE_KEY_2", "\"${localProperties.getProperty("OPENAI_BASE_KEY_2")}\""
+        buildConfigField "String", "X_URL", "\"${localProperties.getProperty("X_URL")}\""
+        buildConfigField "String", "X_API", "\"${localProperties.getProperty("X_API")}\""
 
     }
 
