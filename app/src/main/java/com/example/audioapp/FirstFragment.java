@@ -1051,11 +1051,12 @@ public class FirstFragment extends Fragment {
 
     private static final int GET_RECODE_AUDIO = 1;
 
-    private static String[] PERMISSION_ALL = {
+    private static final String[] PERMISSION_ALL = {
             Manifest.permission.RECORD_AUDIO,
             Manifest.permission.WRITE_EXTERNAL_STORAGE,
             Manifest.permission.READ_EXTERNAL_STORAGE,
             Manifest.permission.CAMERA,
+            Manifest.permission.FOREGROUND_SERVICE
     };
 
     /** 申请录音权限*/

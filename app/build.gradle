@@ -14,7 +14,7 @@ android {
     buildToolsVersion "30.0.3"
 
     defaultConfig {
-        applicationId "com.example.EmoGuardian"
+        applicationId "com.example.GameGuardian"
         minSdkVersion 28
         //noinspection ExpiredTargetSdkVersion
         targetSdkVersion 31

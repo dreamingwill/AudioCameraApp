@@ -4,7 +4,7 @@
     "type": "APK",
     "kind": "Directory"
   },
-  "applicationId": "com.example.EmoGuardian",
+  "applicationId": "com.example.GameGuardian",
   "variantName": "release",
   "elements": [
     {

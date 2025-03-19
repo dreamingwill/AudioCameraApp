@@ -112,7 +112,7 @@ public class ChatGptHelper {
 
             // 第二项：图片数据，使用 CapturedData 的 screenBitmap
             // 裁剪 2000*768以内
-            int[] indicesToSend = {0, 1, 2, 3, 4,};
+            int[] indicesToSend = {0, 2, 3, 4,};
             for (int idx : indicesToSend) {
                 if (captureBuffer.size() > idx) {
                     CapturedData data = captureBuffer.get(idx);
@@ -121,7 +121,7 @@ public class ChatGptHelper {
                         imgObj.put("type", "image_url");
                         JSONObject urlObj = new JSONObject();
                         // 这里设置质量为 30，达到降低图片大小的效果
-                        String dataUrl = bitmapToDataUrl(data.screenBitmap, 30);
+                        String dataUrl = bitmapToDataUrl(data.screenBitmap, 20);
                         urlObj.put("url", dataUrl);
                         imgObj.put("image_url", urlObj);
                         contentArray.put(imgObj);
@@ -210,13 +210,40 @@ public class ChatGptHelper {
      */
     // 压缩，resize一下。改成png试试。
     private String bitmapToDataUrl(Bitmap bitmap, int quality) {
+        // 最大允许的尺寸
+        int maxWidth = 1000; // 2000
+        int maxHeight = 384; //768
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+
+        // 计算缩放因子，确保宽度不超过 maxWidth，且高度不超过 maxHeight
+        float scale = 1.0f;
+        if (width > maxWidth || height > maxHeight) {
+            scale = Math.min((float) maxWidth / width, (float) maxHeight / height);
+        }
+
+        // 如果需要缩放，则生成新的 Bitmap
+        Bitmap resizedBitmap = bitmap;
+        if (scale < 1.0f) {
+            int newWidth = Math.round(width * scale);
+            int newHeight = Math.round(height * scale);
+            resizedBitmap = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true);
+            Log.d(TAG, "Bitmap resized to: " + newWidth + "x" + newHeight);
+        } else {
+            Log.d(TAG, "Bitmap size is within limit, no resizing.");
+        }
+
+        // 使用 PNG 格式压缩 Bitmap
+        // 注意：PNG 格式忽略 quality 参数
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        // 可根据需求调整压缩质量
-        bitmap.compress(Bitmap.CompressFormat.JPEG, quality, baos);
+        resizedBitmap.compress(Bitmap.CompressFormat.PNG, quality, baos);
         byte[] imageBytes = baos.toByteArray();
+
+        // 转换为 Base64 字符串
         String base64 = Base64.encodeToString(imageBytes, Base64.NO_WRAP);
-        Log.d(TAG, "bitmapToDataUrl: "+"data:image/jpeg;base64," + base64);
-        return "data:image/jpeg;base64," + base64;
+        String dataUrl = "data:image/png;base64," + base64;
+        Log.d(TAG, "bitmapToDataUrl: " + dataUrl);
+        return dataUrl;
     }
 
     // 回调接口
