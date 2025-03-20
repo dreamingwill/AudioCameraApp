@@ -96,9 +96,9 @@ public class SecondFragment extends Fragment {
         // 根据持久化的状态更新按钮文字
         isMonitoring = getMonitoringState();
         if (isMonitoring) {
-            monitorButton.setText("stop monitoring");
+            monitorButton.setText(R.string.text_monitor_stop);
         } else {
-            monitorButton.setText("monitor");
+            monitorButton.setText(R.string.text_monitor_start);
         }
 
         GptTestButton = view.findViewById(R.id.btn_Gpt);
@@ -124,7 +124,7 @@ public class SecondFragment extends Fragment {
                         // 修改界面
                         setMonitoringState(true);  // 保存状态
                         isMonitoring = true;
-                        monitorButton.setText("stop monitoring");
+                        monitorButton.setText(R.string.text_monitor_stop);
                         // IMU
                         String fileName = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
                         File csvDir = requireContext().getApplicationContext().getExternalFilesDir("imu");
@@ -160,7 +160,7 @@ public class SecondFragment extends Fragment {
                     //
                     //closeCSVWriter();
                     setMonitoringState(false); // 保存状态
-                    monitorButton.setText("monitor");
+                    monitorButton.setText(R.string.text_monitor_start);
                     isMonitoring = false;
                     imuRecorder.stopRecording();
                 }
@@ -175,6 +175,7 @@ public class SecondFragment extends Fragment {
 
                 chatGptHelper.getInterventionResponse(
                         EmotionMonitoringService.captureBuffer,
+                        4,
                         new ChatGptHelper.ChatGptCallback() {
                             @Override
                             public void onSuccess(String reply) {
@@ -210,6 +211,19 @@ public class SecondFragment extends Fragment {
 
             }
         });
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        SharedPreferences preferences = requireContext().getSharedPreferences("emo_preferences", Context.MODE_PRIVATE);
+        boolean isLandscape = preferences.getBoolean("is_landscape", false);
+
+        if (isLandscape) {
+            requireActivity().setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        } else {
+            requireActivity().setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        }
     }
     public static void showLongDurationToast(final Context context, final String message, final int durationInMillis) {
         final Toast toast = Toast.makeText(context, message, Toast.LENGTH_LONG);

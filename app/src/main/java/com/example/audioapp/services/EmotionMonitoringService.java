@@ -117,6 +117,7 @@ public class EmotionMonitoringService extends Service {
     private int screenWidth;
     private int screenHeight;
     private int screenDensity;
+    private int gameType;
 
     private ModelLoader modelLoader;
     // 全局变量存储最新截图
@@ -158,6 +159,8 @@ public class EmotionMonitoringService extends Service {
             }
         }
         modelLoader = new ModelLoader(getAssets());
+
+
     }
 
     @Override
@@ -337,7 +340,8 @@ public class EmotionMonitoringService extends Service {
             return;
         }
         Bitmap cameraBitmap;
-
+        gameType = getApplicationContext().getSharedPreferences("emo_preferences", Context.MODE_PRIVATE)
+                .getInt("game_type", 1);
         imageCapture.takePicture(ContextCompat.getMainExecutor(this),
                 new ImageCapture.OnImageCapturedCallback() {
                     @Override
@@ -390,7 +394,7 @@ public class EmotionMonitoringService extends Service {
                                         if (currentTime - lastAbnormalTime >= ABNORMAL_COOLDOWN_MS) {
                                             lastAbnormalTime = currentTime;
                                             Log.d(TAG, "captureAndProcess: Negative emotion detected!");
-                                            Toast.makeText(getApplicationContext(), "检测到负面情绪异常", Toast.LENGTH_SHORT).show();
+                                            //Toast.makeText(getApplicationContext(), "检测到负面情绪异常", Toast.LENGTH_SHORT).show();
                                             saveAbnormalData();
                                             String replyStr;
 
@@ -411,6 +415,7 @@ public class EmotionMonitoringService extends Service {
                                                 ChatGptHelper chatGptHelper = new ChatGptHelper();
                                                 chatGptHelper.getInterventionResponse(
                                                         captureBuffer,
+                                                        gameType,
                                                         new ChatGptHelper.ChatGptCallback() {
                                                             @Override
                                                             public void onSuccess(String reply) {

@@ -1,40 +1,87 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+
+<ScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:padding="16dp">
-
-    <TextView
-        android:layout_width="wrap_content"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="选择回复模式：" />
+        android:padding="16dp">
 
-    <RadioGroup
-        android:id="@+id/reply_mode_group"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <RadioButton
-            android:id="@+id/radio_basic_reply"
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="基础回复" />
+            android:text="请选择游戏类型："
+            android:textSize="18sp"
+            android:layout_marginBottom="8dp"/>
 
-        <RadioButton
-            android:id="@+id/radio_gpt_reply"
+        <RadioGroup
+            android:id="@+id/radioGroupGameType"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="大模型回复" />
-    </RadioGroup>
+            android:orientation="vertical">
 
-    <Button
-        android:id="@+id/btn_confirm"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/confirm"
+            <RadioButton
+                android:id="@+id/radio_wzry"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="王者荣耀" />
 
-        android:layout_marginTop="20dp" />
-</LinearLayout>
+            <RadioButton
+                android:id="@+id/radio_jc"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="金铲铲" />
+
+            <RadioButton
+                android:id="@+id/radio_shooter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="枪战游戏" />
+
+            <RadioButton
+                android:id="@+id/radio_others"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="其他游戏"
+                />
+        </RadioGroup>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="选择回复模式：" />
+
+        <RadioGroup
+            android:id="@+id/reply_mode_group"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/radio_basic_reply"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="基础回复"
+                android:checked="true"/>
+
+            <RadioButton
+                android:id="@+id/radio_gpt_reply"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="大模型回复" />
+        </RadioGroup>
+
+        <Button
+            android:id="@+id/btn_confirm"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/confirm"
+
+            android:layout_marginTop="20dp" />
+    </LinearLayout>
+
+</ScrollView>

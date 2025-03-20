@@ -14,7 +14,7 @@ public class PreferenceHelper {
         SharedPreferences.Editor editor = sp.edit();
         editor.putBoolean(KEY_USE_BASIC_REPLY, useBasicReply);
         // 锁定回复模式（当前会话或永久，视你的需求而定）
-        editor.putBoolean(KEY_REPLY_LOCKED, true);
+        //editor.putBoolean(KEY_REPLY_LOCKED, true);
         editor.apply();
     }
 

@@ -20,6 +20,8 @@
     <string name="gpt">Gpt</string>
     <string name="user_page">user page</string>
     <string name="developer_page">developer page</string>
-    <string name="confirm">确认</string>
+    <string name="confirm">确认设置</string>
+    <string name="text_monitor_start">开始追踪</string>
+    <string name="text_monitor_stop">停止追踪</string>
 
 </resources>

@@ -4,23 +4,30 @@
     android:layout_height="match_parent"
     android:padding="16dp">
 
+    <!-- 更改外观，使其不显眼 -->
     <Button
         android:id="@+id/btn_toggle_orientation"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/rotate_view"
+        android:textSize="12sp"
+        android:textColor="#888888"
+        android:background="@android:color/transparent"
         android:layout_centerHorizontal="true"
-        android:layout_marginBottom="20dp"
+        android:layout_marginBottom="10dp"
         android:layout_alignParentTop="true" />
 
     <Button
         android:id="@+id/btn_monitor"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/monitor"
+        android:text="@string/text_monitor_start"
+        android:textSize="18sp"
+        android:textColor="@android:color/white"
+        android:background="@drawable/rounded_button"
         android:layout_centerHorizontal="true"
         android:layout_below="@id/btn_toggle_orientation"
-        android:layout_marginTop="20dp" />
+        android:layout_marginTop="40dp"/>
 
     <Button
         android:id="@+id/btn_Gpt"

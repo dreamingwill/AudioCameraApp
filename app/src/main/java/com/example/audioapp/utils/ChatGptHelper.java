@@ -36,43 +36,37 @@ public class ChatGptHelper {
 
     // 系统提示：专业、友善的游戏心理辅导助手
 
-    // 分游戏选用不同的prompt
-    private static final String SYSTEM_PROMPT = "你是一位专业的游戏心理辅导助手,擅长分析游戏玩家的心理状态和行为模式。你的主要职责是:\n" +
-            "1. 通过游戏截图分析玩家的游戏表现和游戏状况\n" +
-            "2. 基于玩家的情绪数据提供个性化的心理支持\n" +
-            "3. 给出具有建设性的游戏建议,帮助玩家重建信心,不要提及“下一次”，“换个游戏”等建议，要专注现在。\n" +
-            "4. 用温和幽默的方式缓解玩家的负面情绪\n" +
-            "5. 请你提及玩家正在玩的游戏内容或情况（重要）\n" +
-            "请以专业、友善且富有同理心的态度与玩家互动。\n回复不多于20个汉字";
+    // 系统提示：统一说明你的角色和要求
+    private static final String SYSTEM_PROMPT = "你是一位专业的游戏心理辅导助手，擅长分析游戏玩家的心理状态和行为模式。你的主要职责是：\n" +
+            "1. 通过游戏截图分析玩家的表现和当前局势；\n" +
+            "2. 提供个性化心理支持和具体操作建议，帮助玩家重建信心；\n" +
+            "3. 用温和幽默的语言缓解负面情绪；\n" +
+            "4. 必须紧扣玩家正在玩的游戏情况。\n" +
+            "回复不超过15个汉字，请以专业、友善且富有同理心的态度与玩家互动。";
 
-    // 任务提示模板：只使用 CapturedData 中的信息
-    // 其中 avValues[0] 为 arousal，avValues[1] 为 valence
-    private static final String TASK_PROMPT_TEMPLATE = "以下是玩家的近5秒的情绪数据：\n" +
-            "激活程度(Arousal): %.2f\n" +
-            "情绪价值(Valence): %.2f\n" +
-            "\n请用简短温和幽默的语言，给出安抚建议。";
+    // 根据不同游戏类型生成任务提示文本
+    // 例如：1-王者荣耀，2-金铲铲，3-枪战游戏，4-其他游戏
+    private static final String TASK_PROMPT_KING = "【王者荣耀】请判断截图是否显示玩家死亡；若死亡，请分析失败原因并给出鼓励；若未死亡，请结合团战情况提出针对性建议。";
+    private static final String TASK_PROMPT_GOLD = "【金铲铲】请分析截图中玩家局势，指出潜在问题，并给出具体可行的建议与鼓励。";
+    private static final String TASK_PROMPT_SHOOTER = "【枪战游戏】请分析截图中玩家的战局，指出团队协作或战术方面的问题，提供针对性建议和鼓励。";
+    private static final String TASK_PROMPT_OTHERS = "【其他游戏】请根据截图内容分析当前游戏情况，给出针对性建议，若图片内容与选定游戏不符，请以图片实际内容为准。";
 
-    private static final String TASK_PROMPT =
-            "玩家状态分析:\n" +
-                    "针对[王者荣耀/金铲铲等]的游戏场景,请:\n" +
-                    "1. 简要分析当前出现问题的原因,重点关注可改进空间\n" +
-                    "2. 给出具体、可操作的游戏技巧建议\n" +
-                    "3. 用轻松幽默的方式安慰玩家,缓解压力\n\n" +
-
-                    "温馨提示风格参考:\n" +
-                    "\"补刀不准没关系,你的价值不在发育上\"\n" +
-                    "\"团战失误很正常,下次记得跟着节奏走\"\n" +
-                    "\"装备落后不要紧,运营节奏才是关键\"\n" +
-                    "\"技能空了别着急,关键时刻还能留着\"\n\n" +
-
-                    "输入：\n" +
-                    "输入还包含几帧图片，请分析图片内容，根据玩家当前的一些场况和潜在问题，给出建议\n\n" +
-
-                    "输出要求:\n" +
-                    "- 使用亲切的第二人称, 首先紧扣游戏画面内容分析游戏的情况，然后给出建议\n" +
-                    "- 控制在20字以内,用一段话表示\n" +
-                    "- 语气温和且富有建设性\n" +
-                    "- 别提到任何有关截图的事情，只分析单局游戏情况\n";
+    // 根据游戏类型生成 task prompt
+    // gameType: 1-王者荣耀, 2-金铲铲, 3-枪战游戏, 4-其他游戏
+    // 根据游戏类型返回对应的任务提示
+    private static String getTaskPrompt(int gameType) {
+        switch (gameType) {
+            case 1:
+                return TASK_PROMPT_KING;
+            case 2:
+                return TASK_PROMPT_GOLD;
+            case 3:
+                return TASK_PROMPT_SHOOTER;
+            case 4:
+            default:
+                return TASK_PROMPT_OTHERS;
+        }
+    }
 
     private final OkHttpClient client;
 
@@ -81,26 +75,33 @@ public class ChatGptHelper {
     }
 
     /**
-     * 使用 CapturedData 中的信息生成对 GPT 的请求，并返回安抚建议。
-     * 其中将 CapturedData 的 screenBitmap 作为图片数据上传（通过转换为 data URL）。
+     * 发送请求给大模型进行安抚回复，输入为 captureBuffer 中所有数据和用户选择的游戏类型。
      *
-     * @param captureBuffer     CapturedData 对象，包含情绪数据和屏幕截图
-     * @param callback 回调接口，返回 GPT 回复或错误信息
+     * @param captureBuffer 捕获的最近 5 秒内的传感器数据（和截图）
+     * @param gameType 用户选择的游戏类型（1：王者荣耀，2：金铲铲，3：枪战游戏，4：其他游戏）
+     * @param callback 回调接口
      */
     @SuppressLint("DefaultLocale")
-    public void getInterventionResponse(List<CapturedData> captureBuffer, ChatGptCallback callback) {
-        // 根据 CapturedData 构建文本提示
-        // 构建描述每个采样点情绪数据的文本
-        StringBuilder promptBuilder = new StringBuilder();
-        promptBuilder.append(TASK_PROMPT+"以下是玩家近5秒内每个时刻的情绪数据：\n(Arousal,Valence):");
-
-        for (CapturedData data : captureBuffer) {
-            // 如果需要对 timestamp 做格式化，可以根据需求转换为具体时间格式，这里直接输出数字
-            promptBuilder.append(String.format("(%.2f,%.2f),", data.avValues[0],data.avValues[1]));
+    public void getInterventionResponse(List<CapturedData> captureBuffer, int gameType, ChatGptCallback callback) {
+        if (captureBuffer == null || captureBuffer.isEmpty()) {
+            callback.onFailure("captureBuffer为空");
+            return;
         }
-        promptBuilder.append("\n请用简短温和幽默的语言，给出安抚建议,不多于20个汉字。");
-        String promptText = promptBuilder.toString();
+        // 构建 prompt 文本
+        StringBuilder promptBuilder = new StringBuilder();
+        // 首先加入针对游戏类型的任务提示
+        promptBuilder.append(getTaskPrompt(gameType));
+        promptBuilder.append("\n");
+        // 添加近5秒内每个时刻的情绪数据
+        promptBuilder.append("Arousal表示情感的强度或活跃程度，Valence情感的积极或消极性。近5秒情绪数据 (Arousal,Valence): ");
+        for (CapturedData data : captureBuffer) {
+            promptBuilder.append(String.format("(%.2f,%.2f),", data.avValues[0], data.avValues[1]));
+        }
+        promptBuilder.append("\n如果上传的图片与选定游戏不一致，请以图片内容为准，但不能说出图片与要求不一致，也不能说‘图片’两个字；应该继续根据图片判断用户在做什么，说些安慰、鼓励的话。");
+        promptBuilder.append("\n回复要求：请用温和幽默的语言，给出安抚建议，不超过15个汉字。");
 
+        String promptText = promptBuilder.toString();
+        Log.d("ChatGptHelper", "Constructed Prompt: " + promptText);
         // 构建用户消息内容，使用 JSON 数组形式
         JSONArray contentArray = new JSONArray();
         try {
@@ -236,12 +237,12 @@ public class ChatGptHelper {
         // 使用 PNG 格式压缩 Bitmap
         // 注意：PNG 格式忽略 quality 参数
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        resizedBitmap.compress(Bitmap.CompressFormat.PNG, quality, baos);
+        resizedBitmap.compress(Bitmap.CompressFormat.JPEG, quality, baos);
         byte[] imageBytes = baos.toByteArray();
 
         // 转换为 Base64 字符串
         String base64 = Base64.encodeToString(imageBytes, Base64.NO_WRAP);
-        String dataUrl = "data:image/png;base64," + base64;
+        String dataUrl = "data:image/jpeg;base64," + base64;
         Log.d(TAG, "bitmapToDataUrl: " + dataUrl);
         return dataUrl;
     }
