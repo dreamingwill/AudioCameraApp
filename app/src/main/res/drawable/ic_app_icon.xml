@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- res/drawable/ic_game_guardian.xml -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- 渐变背景盾牌 -->
+<!--    <group>-->
+<!--        <path-->
+<!--            android:fillColor="@android:color/transparent"-->
+<!--            android:pathData="M12 2.5L2 7v6c0 5 7 10.5 10 10.5s10-5.5 10-10.5V7l-10-4.5z"/>-->
+
+<!--        <group android:scaleX="0.9" android:scaleY="0.9">-->
+<!--            <path-->
+<!--                android:fillColor="@android:color/transparent"-->
+<!--                android:pathData="M12 2.5L2 7v6c0 5 7 10.5 10 10.5s10-5.5 10-10.5V7l-10-4.5z">-->
+
+<!--            </path>-->
+<!--        </group>-->
+<!--    </group>-->
+
+    <!-- 动态笑脸 -->
+    <group android:name="smile_face">
+
+
+        <!-- 动态眼睛 -->
+        <group android:name="eyes">
+            <path
+                android:fillColor="#212121"
+                android:pathData="M8 9a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+            <path
+                android:fillColor="#212121"
+                android:pathData="M18 9a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+        </group>
+    </group>
+
+<!--     守护元素（盾牌装饰）-->
+    <group>
+
+        <path
+            android:strokeColor="#BBDEFB"
+            android:strokeWidth="0.5"
+            android:fillColor="#2196F3"
+            android:pathData="M12 3l9 4v5c0 1-1 3-3 5-2 2-5 4-6 4s-4-2-6-4-3-4-3-5V7l9-4z"/>
+        <!-- 笑脸基础 -->
+<!--        <path-->
+<!--            android:strokeColor="#FFF59D"-->
+<!--            android:strokeWidth="0.8"-->
+<!--            android:fillColor="#FFEB3B"-->
+<!--            android:pathData="M12 14a6 6 0 0 1-6-6h12a6 6 0 0 1-6 6z"/>-->
+<!--        <path-->
+<!--            android:fillColor="#212121"-->
+<!--            android:pathData="M8 9a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>-->
+<!--        <path-->
+<!--            android:fillColor="#212121"-->
+<!--            android:pathData="M18 9a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>-->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M54,15L65,40H90L70,60L78,85L54,70L30,85L38,60L18,40H43Z"/>
+        <!-- 盾牌星光 -->
+        <path
+            android:fillColor="#fFFFda"
+            android:pathData="M12 5l1.5 3.5h4l-3 2.5 1 4-3.5-2.5-3.5 2.5 1-4-3-2.5h4z"/>
+    </group>
+
+
+</vector>
+
