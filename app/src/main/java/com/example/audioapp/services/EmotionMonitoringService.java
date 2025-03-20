@@ -2,6 +2,7 @@ package com.example.audioapp.services;
 
 import com.example.audioapp.entity.GlobalHistory;
 import com.example.audioapp.utils.BaselineCalculator;
+import com.example.audioapp.utils.BasicReplyHelper;
 import com.example.audioapp.utils.FaceDetectorHelper;
 import com.example.audioapp.utils.ModelLoader;
 import com.example.audioapp.R;
@@ -52,6 +53,7 @@ import androidx.lifecycle.LifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 
 import com.example.audioapp.utils.ChatGptHelper;
+import com.example.audioapp.utils.PreferenceHelper;
 import com.example.audioapp.utils.YuvToRgbConverter;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -394,40 +396,51 @@ public class EmotionMonitoringService extends Service {
 
                                             File csvFile = new File(getExternalFilesDir(Environment.DIRECTORY_ALARMS + "/GlobalHistory"), "av_record_globalHistory.csv");
                                             GlobalHistory.saveToCSV(csvFile);
-                                            // 在检测异常的地方调用（例如在 captureAndProcess() 中）：
-                                            String abnormalInfo = "Valence: " + avValues[0] + ", Arousal: " + avValues[1] + " at timestamp " + timestamp;
+
                                             // ChatGpt
-                                            ChatGptHelper chatGptHelper = new ChatGptHelper();
-                                            chatGptHelper.getInterventionResponse(
-                                                    captureBuffer,
-                                                    new ChatGptHelper.ChatGptCallback() {
-                                                        @Override
-                                                        public void onSuccess(String reply) {
-                                                            // 记录成功回复
-                                                            long timestamp = System.currentTimeMillis();
-                                                            logReplyToFile(timestamp, reply);
-                                                            // 在主线程中更新 UI，可使用 Handler 切换
-                                                            new Handler(Looper.getMainLooper()).post(() -> {
-                                                                Toast toast = Toast.makeText(getApplicationContext(), reply, Toast.LENGTH_LONG);
-                                                                toast.show();
-                                                                Log.d(TAG, "onSuccess: "+reply);
-                                                                // 额外延长显示时间
-                                                                new Handler(Looper.getMainLooper()).postDelayed(toast::show, 1000); // 额外延长 3.5 秒
-                                                            });
+                                            if (PreferenceHelper.isUseBasicReply(getApplicationContext())) {
+                                                // 使用基础回复
+                                                String basicReply = BasicReplyHelper.getRandomReply();
+                                                new Handler(Looper.getMainLooper()).post(() -> {
+                                                    Toast.makeText(getApplicationContext(), basicReply, Toast.LENGTH_LONG).show();
+                                                    Log.d(TAG, "onSuccess: BasicReply: " + basicReply);
+                                                });
+                                                // 记录日志到文件等操作也可以添加在这里
+                                            }else {
+                                                // 使用 GPT 模型回复，示例调用 getInterventionResponse
+                                                ChatGptHelper chatGptHelper = new ChatGptHelper();
+                                                chatGptHelper.getInterventionResponse(
+                                                        captureBuffer,
+                                                        new ChatGptHelper.ChatGptCallback() {
+                                                            @Override
+                                                            public void onSuccess(String reply) {
+                                                                // 记录成功回复
+                                                                long timestamp = System.currentTimeMillis();
+                                                                logReplyToFile(timestamp, reply);
+                                                                // 在主线程中更新 UI，可使用 Handler 切换
+                                                                new Handler(Looper.getMainLooper()).post(() -> {
+                                                                    Toast toast = Toast.makeText(getApplicationContext(), reply, Toast.LENGTH_LONG);
+                                                                    toast.show();
+                                                                    Log.d(TAG, "onSuccess: "+reply);
+                                                                    // 额外延长显示时间
+                                                                    new Handler(Looper.getMainLooper()).postDelayed(toast::show, 1000); // 额外延长 3.5 秒
+                                                                });
+                                                            }
+                                                            @Override
+                                                            public void onFailure(String error) {
+                                                                // 记录失败信息
+                                                                long timestamp = System.currentTimeMillis();
+                                                                logReplyToFile(timestamp, "Failed to get response: " + error);
+                                                                new Handler(Looper.getMainLooper()).post(() -> {
+                                                                    //showCustomToast(error,5000);
+                                                                    //Toast.makeText(getApplicationContext(), "Failed to get response: " + error, Toast.LENGTH_SHORT).show();
+                                                                    Log.e(TAG, "onFailure: Failed to get response:" + error );
+                                                                });
+                                                            }
                                                         }
-                                                        @Override
-                                                        public void onFailure(String error) {
-                                                            // 记录失败信息
-                                                            long timestamp = System.currentTimeMillis();
-                                                            logReplyToFile(timestamp, "Failed to get response: " + error);
-                                                            new Handler(Looper.getMainLooper()).post(() -> {
-                                                                //showCustomToast(error,5000);
-                                                                //Toast.makeText(getApplicationContext(), "Failed to get response: " + error, Toast.LENGTH_SHORT).show();
-                                                                Log.e(TAG, "onFailure: Failed to get response:" + error );
-                                                            });
-                                                        }
-                                                    }
-                                            );
+                                                );
+                                            }
+
                                         }
                                     }
 
@@ -514,7 +527,8 @@ public class EmotionMonitoringService extends Service {
 
     @SuppressLint("SimpleDateFormat")
     private void logReplyToFile(long timestamp, String message) {
-        File logFile = new File(getExternalFilesDir(Environment.DIRECTORY_ALARMS + "/GlobalHistory"), "chatgpt_replies.txt");
+        File logFile = new File(getExternalFilesDir(Environment.DIRECTORY_ALARMS + "/GlobalHistory"), "reply_logs.txt");
+
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(logFile, true))) {
             writer.write(new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date(timestamp)) + " - " + message);
             writer.newLine();

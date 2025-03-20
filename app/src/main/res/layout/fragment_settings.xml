@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="选择回复模式：" />
+
+    <RadioGroup
+        android:id="@+id/reply_mode_group"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <RadioButton
+            android:id="@+id/radio_basic_reply"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="基础回复" />
+
+        <RadioButton
+            android:id="@+id/radio_gpt_reply"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="大模型回复" />
+    </RadioGroup>
+
+    <Button
+        android:id="@+id/btn_confirm"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/confirm"
+
+        android:layout_marginTop="20dp" />
+</LinearLayout>

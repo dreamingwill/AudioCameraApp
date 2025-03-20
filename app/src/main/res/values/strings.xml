@@ -20,5 +20,6 @@
     <string name="gpt">Gpt</string>
     <string name="user_page">user page</string>
     <string name="developer_page">developer page</string>
+    <string name="confirm">确认</string>
 
 </resources>
