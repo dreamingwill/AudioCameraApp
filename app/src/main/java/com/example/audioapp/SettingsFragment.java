@@ -29,6 +29,9 @@ public class SettingsFragment extends Fragment {
     // SharedPreferences 文件名和键
     private static final String PREFS_NAME = "emo_preferences";
     private static final String KEY_GAME_TYPE = "game_type";
+    public static final boolean DEAD_CHOICE = true; // 把模型选择写死
+    public static final boolean SMART_REPLY = true; //若写死，规定时候智能回复。
+
 
     @Nullable
     @Override
@@ -48,30 +51,49 @@ public class SettingsFragment extends Fragment {
         rbOthers = view.findViewById(R.id.radio_others);
         btnConfirm = view.findViewById(R.id.btn_confirm);
 
-        // 如果已经锁定，则禁用 RadioGroup 修改
-        if (PreferenceHelper.isReplyLocked(requireContext())) {
+
+        if(DEAD_CHOICE){
+            // 根据 SMART_REPLY 变量设置默认选中项，并禁用修改
+            boolean useBasicReply = !SMART_REPLY;
+            basicReplyButton.setChecked(useBasicReply);
+            gptReplyButton.setChecked(!useBasicReply);
+            // 禁用修改选项
             replyModeGroup.setEnabled(false);
             basicReplyButton.setEnabled(false);
             gptReplyButton.setEnabled(false);
-            //Toast.makeText(requireContext(), "回复模式已锁定，无法修改", Toast.LENGTH_SHORT).show();
+        }else {
+            // 可自由选择，但会锁定和解锁
+            // 如果已经锁定，则禁用 RadioGroup 修改
+            if (PreferenceHelper.isReplyLocked(requireContext())) {
+                replyModeGroup.setEnabled(false);
+                basicReplyButton.setEnabled(false);
+                gptReplyButton.setEnabled(false);
+            } else {
+                replyModeGroup.setEnabled(true);
+                basicReplyButton.setEnabled(true);
+                gptReplyButton.setEnabled(true);
+            }
+
+            replyModeGroup.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+                @Override
+                public void onCheckedChanged(RadioGroup group, int checkedId) {
+                    boolean useBasicReply;
+                    if (checkedId == R.id.radio_basic_reply) {
+                        useBasicReply = true;
+                    } else if (checkedId == R.id.radio_gpt_reply) {
+                        useBasicReply = false;
+                    } else {
+                        return;
+                    }
+                    // 保存用户选择，并锁定设置
+                    PreferenceHelper.setReplyMode(requireContext(), useBasicReply);
+                    //Toast.makeText(requireContext(), "回复模式已设置，且锁定", Toast.LENGTH_SHORT).show();
+                }
+            });
         }
 
-        replyModeGroup.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                boolean useBasicReply = true;
-                if (checkedId == R.id.radio_basic_reply) {
-                    useBasicReply = true;
-                } else if (checkedId == R.id.radio_gpt_reply) {
-                    useBasicReply = false;
-                } else {
-                    return;
-                }
-                // 保存用户选择，并锁定设置
-                PreferenceHelper.setReplyMode(requireContext(), useBasicReply);
-                //Toast.makeText(requireContext(), "回复模式已设置，且锁定", Toast.LENGTH_SHORT).show();
-            }
-        });
+
+
 
 
 
@@ -121,7 +143,7 @@ public class SettingsFragment extends Fragment {
                     .putInt(KEY_GAME_TYPE, selectedGameType)
                     .putBoolean("is_landscape", isLandscape)
                     .apply();
-            Toast.makeText(requireContext(), "设置已保存", Toast.LENGTH_SHORT).show();
+            //Toast.makeText(requireContext(), "设置已保存", Toast.LENGTH_SHORT).show();
 
             // 保存选择及锁定操作已经在设置中处理，此处直接导航到 SecondFragment
             NavController navController = Navigation.findNavController(view);

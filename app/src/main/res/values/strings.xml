@@ -23,5 +23,6 @@
     <string name="confirm">确认设置</string>
     <string name="text_monitor_start">开始追踪</string>
     <string name="text_monitor_stop">停止追踪</string>
+    <string name="unlock">unlock</string>
 
 </resources>

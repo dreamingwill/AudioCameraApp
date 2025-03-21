@@ -31,6 +31,7 @@ import com.example.audioapp.services.EmotionMonitoringService;
 import com.example.audioapp.utils.ChatGptHelper;
 import com.example.audioapp.utils.FileUtil;
 import com.example.audioapp.utils.IMURecorder;
+import com.example.audioapp.utils.PreferenceHelper;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -85,6 +86,13 @@ public class SecondFragment extends Fragment {
             }
         });
 
+        Button unlock_button = view.findViewById(R.id.unlock_reply_button);
+        unlock_button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                PreferenceHelper.unlockReplyMode(requireContext());
+            }
+        });
 
         return view;
     }

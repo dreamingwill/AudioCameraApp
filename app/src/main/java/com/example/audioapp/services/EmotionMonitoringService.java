@@ -321,6 +321,7 @@ public class EmotionMonitoringService extends Service {
         Bitmap cameraBitmap;
         gameType = getApplicationContext().getSharedPreferences("emo_preferences", Context.MODE_PRIVATE)
                 .getInt("game_type", 1);
+
         imageCapture.takePicture(ContextCompat.getMainExecutor(this),
                 new ImageCapture.OnImageCapturedCallback() {
                     @Override
@@ -375,7 +376,6 @@ public class EmotionMonitoringService extends Service {
                                             Log.d(TAG, "captureAndProcess: Negative emotion detected!");
                                             //Toast.makeText(getApplicationContext(), "检测到负面情绪异常", Toast.LENGTH_SHORT).show();
                                             saveAbnormalData();
-                                            String replyStr;
 
                                             File csvFile = new File(getExternalFilesDir(Environment.DIRECTORY_ALARMS + "/GlobalHistory"), "av_record_globalHistory.csv");
                                             GlobalHistory.saveToCSV(csvFile);

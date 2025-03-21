@@ -39,5 +39,18 @@
         android:layout_below="@id/btn_monitor"
         android:layout_marginTop="20dp" />
 
+    <!-- 放置在右下角的解锁按钮 -->
+    <Button
+        android:id="@+id/unlock_reply_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentEnd="true"
+        android:layout_margin="16dp"
+        android:background="@android:color/transparent"
+        android:text="@string/unlock"
+        android:textColor="#888888"
+        android:textSize="12sp" />
+
 
 </RelativeLayout>

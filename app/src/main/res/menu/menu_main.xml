@@ -20,4 +20,10 @@
         android:title="@string/developer_page"
         android:orderInCategory="100"
         app:showAsAction="never"/>
+
+<!--    <item-->
+<!--        android:id="@+id/action_unlock_reply"-->
+<!--        android:title="@string/unlock"-->
+<!--        android:orderInCategory="100"-->
+<!--        app:showAsAction="never"/>-->
 </menu>

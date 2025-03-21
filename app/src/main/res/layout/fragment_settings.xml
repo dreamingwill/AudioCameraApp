@@ -7,15 +7,18 @@
     android:fillViewport="true">
     <LinearLayout
         android:orientation="vertical"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:padding="16dp">
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="20dp"
+        android:padding="16dp"
+        android:gravity="start"> <!-- 左对齐 -->
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="请选择游戏类型："
-            android:textSize="18sp"
+            android:text="选择游戏类型："
+            android:textSize="20sp"
             android:layout_marginBottom="8dp"/>
 
         <RadioGroup
@@ -28,24 +31,28 @@
                 android:id="@+id/radio_wzry"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="王者荣耀" />
+                android:textSize="18sp"
+                android:text="王者荣耀(推荐）" />
 
             <RadioButton
                 android:id="@+id/radio_jc"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="金铲铲" />
+                android:text="金铲铲"
+                android:visibility="gone"/>
 
             <RadioButton
                 android:id="@+id/radio_shooter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="枪战游戏" />
+                android:text="枪战游戏"
+                android:visibility="gone"/>
 
             <RadioButton
                 android:id="@+id/radio_others"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:textSize="18sp"
                 android:text="其他游戏"
                 />
         </RadioGroup>
@@ -53,9 +60,9 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="选择回复模式："
-            android:textSize="18sp"
-            android:layout_marginTop="20dp"/>
+            android:text="选择交互模型："
+            android:textSize="20sp"
+            android:layout_marginTop="30dp"/>
 
         <RadioGroup
             android:id="@+id/reply_mode_group"
@@ -63,18 +70,20 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+            <!--                也可以加默认-->
             <RadioButton
                 android:id="@+id/radio_basic_reply"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="基础回复"
-                android:checked="true"/>
+                android:textSize="18sp"
+                android:text="模式A" />
 
             <RadioButton
                 android:id="@+id/radio_gpt_reply"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="大模型回复" />
+                android:textSize="18sp"
+                android:text="模式B" />
         </RadioGroup>
 
         <Button
@@ -83,7 +92,7 @@
             android:layout_height="wrap_content"
             android:text="@string/confirm"
 
-            android:layout_marginTop="20dp" />
+            android:layout_marginTop="10dp" />
     </LinearLayout>
 
 </ScrollView>
