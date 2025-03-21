@@ -1,5 +1,6 @@
 package com.example.audioapp.services;
 
+import com.example.audioapp.MainActivity;
 import com.example.audioapp.entity.GlobalHistory;
 import com.example.audioapp.utils.BaselineCalculator;
 import com.example.audioapp.utils.BasicReplyHelper;
@@ -71,7 +72,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-
+import android.app.PendingIntent;
+import android.content.Intent;
 /**
  * EmotionMonitoringService 用于实时采集照片、调用 torch 模型推理出 V-A 值，
  * 并在检测到负面情绪异常时保存最近 30 张照片及其记录。
@@ -82,17 +84,21 @@ public class EmotionMonitoringService extends Service {
 
     // 定义一些阈值和最小采样数量
     private static final int WINDOW_SAMPLES_NUM = 5; // 窗口长度5条数据
-    private static final int HISTORY_LEAST_SAMPLES_NUM = 50; // 至少300个历史数据再记录
+    private static final int HISTORY_LEAST_SAMPLES_NUM = 40; // 至少300个历史数据再记录
     private static final int MIN_RECENT_SAMPLES = 3;        // 至少需要3个采样点
     private static final float AROUSAL_STD_THRESHOLD = 0.12f; // 激活度标准差阈值
     private static final float VALENCE_STD_THRESHOLD = 0.12f; // 情绪价值标准差阈值
 
-    private static final float AROUSAL_Z_SCORE_THRESHOLD = 1.3f; // 激活度标准差阈值
-    private static final float VALENCE_Z_SCORE_THRESHOLD = 1.3f; // 情绪价值标准差阈值
+    private static final float AROUSAL_Z_SCORE_THRESHOLD = 1.6f; // 激活度标准差阈值
+    private static final float VALENCE_Z_SCORE_THRESHOLD = 1.3f; // 情绪价值标准差阈值。反正让他俩用一个值了。
     private static final float NEGATIVE_RATIO_THRESHOLD = 0.3f; // 窗口中负面采样占比阈值0.3
-    private static final float ANGER_VALENCE_THRESHOLD = -0.25f;
-    private static final float ANGER_AROUSAL_THRESHOLD = 0.3f;
-
+    private static final float ANGER_VALENCE_THRESHOLD = -0.28f;
+    private static final float ANGER_AROUSAL_THRESHOLD = 0.35f;
+    private static final long ABNORMAL_COOLDOWN_MS = 30_000; // 冷却时间，例如60秒
+    private static final long RELAX_INTERVAL = 60_000; // 放宽间隔，60秒
+    private static final float RELAX_STEP = 0.1f; // 每次放宽步长，0.1
+    private static final float MAX_RELAX = 0.8f; // 最大放宽幅度，0.8
+    private static final float MAX_RELAX_NEG_RATIO = 0.2f;
     private ImageCapture imageCapture;
     private ProcessCameraProvider cameraProvider;
     private ScheduledExecutorService scheduledExecutor;
@@ -106,7 +112,7 @@ public class EmotionMonitoringService extends Service {
     private boolean abnormalTriggered = false;
     // 定义全局变量
     private long lastAbnormalTime = 0;
-    private static final long ABNORMAL_COOLDOWN_MS = 30_000; // 冷却时间，例如60秒
+
 
     // 数据结构：保存一张照片和对应的 V-A 值记录
 
@@ -122,7 +128,8 @@ public class EmotionMonitoringService extends Service {
     private ModelLoader modelLoader;
     // 全局变量存储最新截图
     private volatile Bitmap latestScreenBitmap = null;
-    private long lastScreenshotTimestamp = 0;
+
+
 
     @Override
     public void onCreate() {
@@ -168,7 +175,7 @@ public class EmotionMonitoringService extends Service {
         Log.d(TAG, "onStartCommand: Service is starting");
         // 启动前台服务，避免在后台被杀
         startForeground(NOTIFICATION_ID, createNotification());
-
+        lastAbnormalTime = System.currentTimeMillis();
         // 如果 Intent 中传入了 MediaProjection 权限信息，则初始化屏幕捕捉
         if (intent != null && intent.hasExtra("resultCode") && intent.hasExtra("resultData")) {
             int resultCode = intent.getIntExtra("resultCode", Activity.RESULT_CANCELED);
@@ -217,11 +224,18 @@ public class EmotionMonitoringService extends Service {
 
     // 创建服务通知
     private Notification createNotification() {
+        // 创建点击通知后打开 MainActivity 的 Intent
+        Intent notificationIntent = new Intent(this, MainActivity.class);
+        // 设置适当的标志，确保 Activity 在已存在时复用（根据实际需求调整）
+        notificationIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE);
+
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "emotion_monitoring_channel")
                 .setContentTitle("情绪监测中")
                 .setContentText("正在通过摄像头采集数据并分析情绪...")
-                .setSmallIcon(R.drawable.ic_launcher_background)
-                .setOngoing(true);
+                .setSmallIcon(R.drawable.ic_app_icon)
+                .setOngoing(true)
+                .setContentIntent(pendingIntent);
         return builder.build();
     }
 
@@ -267,16 +281,6 @@ public class EmotionMonitoringService extends Service {
                 Log.d(TAG, "startCamera: Camera initialized successfully");
                 // 摄像头初始化完成后，再启动定时任务，每隔1秒采集一张照片
 
-                // 保存路径：例如保存在应用外部存储的文件夹中
-//                String baseDir = getExternalFilesDir(Environment.DIRECTORY_ALARMS)+"/GlobalHistory";
-//                File dir = new File(baseDir);
-//                if (dir.exists()) {
-//                    // 同时生成一个文本文件记录 V-A 值
-//                    String csvFileName = "av_record_globalHistory.csv";
-//                    File csvFile = new File(dir, csvFileName);
-//                    GlobalHistory.loadFromCSV(csvFile);
-//                    Log.d(TAG, "onStartCommand: GlobalHistory loaded");
-//                }
 
                 scheduledExecutor.scheduleWithFixedDelay(() -> captureAndProcess(), 0,  1000, TimeUnit.MILLISECONDS);
 
@@ -298,31 +302,6 @@ public class EmotionMonitoringService extends Service {
                         screenWidth, screenHeight, screenDensity,
                         DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
                         imageReader.getSurface(), null, null);
-                // 设置监听器更新全局最新截图
-//                imageReader.setOnImageAvailableListener(reader -> {
-//                    Image image = reader.acquireLatestImage();
-//                    if (image != null) {
-//                        long currentTime = System.currentTimeMillis();
-//                        // 如果上次更新截图距离当前不足1秒，则直接关闭image
-//                        if (currentTime - lastScreenshotTimestamp < 1000) {
-//                            image.close();
-//                            return;
-//                        }
-//                        lastScreenshotTimestamp = currentTime;
-//
-//                        // 将 image 转为 Bitmap
-//                        Bitmap newBitmap = null;
-//                        HardwareBuffer buffer = image.getHardwareBuffer();
-//                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && buffer != null) {
-//                            newBitmap = Bitmap.wrapHardwareBuffer(buffer, null);
-//                        }
-//                        image.close();
-//                        if (newBitmap != null) {
-//                            latestScreenBitmap = newBitmap;
-//                            Log.d(TAG, "New screenshot updated at " + currentTime);
-//                        }
-//                    }
-//                }, new Handler(Looper.getMainLooper()));
 
                 Log.d(TAG, "initMediaProjection: MediaProjection initialized successfully");
             } else {
@@ -503,7 +482,8 @@ public class EmotionMonitoringService extends Service {
             // Step 3.1 判断与基线的差异（Z-score 或差值）
             float zArousal = (arousal - baseline.avgArousal) / (baseline.stdArousal + 1e-5f);
             float zValence = (valence - baseline.avgValence) / (baseline.stdValence + 1e-5f);
-            if((Math.abs(zArousal) > AROUSAL_Z_SCORE_THRESHOLD || Math.abs(zValence) > VALENCE_Z_SCORE_THRESHOLD)){
+            float dynamicThreshold = getDynamicThreshold();
+            if((Math.abs(zArousal) > dynamicThreshold || Math.abs(zValence) > dynamicThreshold)){
                 farFromBaselineCount++;
             }
         }
@@ -519,8 +499,9 @@ public class EmotionMonitoringService extends Service {
 
 
         // 方案2：判断整体窗口中负面采样比例是否超过阈值
-        boolean negativeRatioCondition = ((float) negativeCount / total) >= NEGATIVE_RATIO_THRESHOLD;
-        boolean isFarFromBaseline = ((float) farFromBaselineCount / total) >= NEGATIVE_RATIO_THRESHOLD;
+        float dynamicNegativeRatioThreshold = getDynamicNegativeRatioThreshold();
+        boolean negativeRatioCondition = ((float) negativeCount / total) > dynamicNegativeRatioThreshold;
+        boolean isFarFromBaseline = ((float) farFromBaselineCount / total) > dynamicNegativeRatioThreshold;
         // 你可以继续定义其他情绪阈值，比如烦躁、悲伤等
         // ...
         // 方案3，如果是在笑，就舍弃
@@ -566,18 +547,17 @@ public class EmotionMonitoringService extends Service {
             synchronized (captureBuffer) {
                 for (CapturedData data : captureBuffer) {
                     String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss_SSS").format(new Date(data.timestamp));
-                    String camFileName = "CAM_" + timestamp + ".jpg";
-                    String scrFileName = "NA";
-                    File camFile = new File(dir, camFileName);
-                    try (FileOutputStream camOut = new FileOutputStream(camFile)) {
-                        data.cameraBitmap.compress(Bitmap.CompressFormat.JPEG, 40, camOut);
-                    }
+                    //String camFileName = "CAM_" + timestamp + ".jpg";
+                    String scrFileName = "SCR_" + timestamp + ".jpg";
+//                    File camFile = new File(dir, camFileName);
+//                    try (FileOutputStream camOut = new FileOutputStream(camFile)) {
+//                        data.cameraBitmap.compress(Bitmap.CompressFormat.JPEG, 20, camOut);
+//                    }
                     // 如果屏幕截图存在，也保存
                     if (data.screenBitmap != null) {
-                        scrFileName = "SCR_" + timestamp + ".jpg";
                         File scrFile = new File(dir, scrFileName);
                         try (FileOutputStream scrOut = new FileOutputStream(scrFile)) {
-                            data.screenBitmap.compress(Bitmap.CompressFormat.JPEG, 40, scrOut);
+                            data.screenBitmap.compress(Bitmap.CompressFormat.JPEG, 20, scrOut);
                         }
                     }
                     // 生成 CSV 行：摄像头文件名,屏幕截图文件名,,Arousal,Valence
@@ -652,6 +632,20 @@ public class EmotionMonitoringService extends Service {
         } else {
             Log.d(TAG, "captureScreenManually: newBitmap is null after processing");
         }
+    }
+    private float getDynamicThreshold() {
+        long currentTime = System.currentTimeMillis();
+        long timeSinceLastAbnormal = currentTime - lastAbnormalTime;
+        int relaxSteps = (int) (timeSinceLastAbnormal / RELAX_INTERVAL); // 计算放宽次数
+        float relaxAmount = Math.min(relaxSteps * RELAX_STEP, MAX_RELAX); // 计算总放宽量
+        return AROUSAL_Z_SCORE_THRESHOLD - relaxAmount; // 动态 Z-score 阈值
+    }
+    private float getDynamicNegativeRatioThreshold() {
+        long currentTime = System.currentTimeMillis();
+        long timeSinceLastAbnormal = currentTime - lastAbnormalTime;
+        int relaxSteps = (int) (timeSinceLastAbnormal / RELAX_INTERVAL); // 计算放宽次数
+        float relaxAmount = Math.min(relaxSteps * RELAX_STEP / 2, MAX_RELAX_NEG_RATIO); // 计算总放宽量
+        return NEGATIVE_RATIO_THRESHOLD - relaxAmount; // 动态负面比例阈值
     }
 
     private void showCustomToast(final String message, final int displayDurationMillis) {

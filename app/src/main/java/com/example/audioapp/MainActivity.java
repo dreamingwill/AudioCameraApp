@@ -56,7 +56,7 @@ public class MainActivity extends AppCompatActivity {
             navController.navigate(R.id.SecondFragment);
             return true;
         } else if (id == R.id.action_to_dev) {
-            navController.navigate(R.id.FirstFragment);
+            //navController.navigate(R.id.FirstFragment);
             return true;
         }
 
