@@ -22,7 +22,7 @@ public class ModelLoader {
     private static final float[] NORM_MEAN = {0.485f, 0.456f, 0.406f};
     private static final float[] NORM_STD = {0.229f, 0.224f, 0.225f};
     public static final String modelPath = "lc_best_20.pt";
-    public static final String exampleImgPath = "happy3.png";
+    public static final String exampleImgPath = "happy2.png";
     private static Module module;
     private Bitmap exampleBitmap = null;
 
