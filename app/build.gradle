@@ -93,7 +93,7 @@ dependencies {
     implementation 'com.squareup.okhttp3:okhttp:4.10.0'
 
     // ML Kit 人脸检测依赖
-    implementation 'com.google.mlkit:face-detection:16.1.5'
+//    implementation 'com.google.mlkit:face-detection:16.1.5'
 
     //implementation 'com.google.android.gms:play-services-tasks:17.2.1'
 

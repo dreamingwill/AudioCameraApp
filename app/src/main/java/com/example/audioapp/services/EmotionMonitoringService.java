@@ -72,6 +72,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -119,7 +120,7 @@ public class EmotionMonitoringService extends Service {
     // 用于标记是否已经触发异常信号
     private boolean abnormalTriggered = false;
     // 定义全局变量
-    private long lastAbnormalTime = 0;
+    private long lastAbnormalTime,startTime;
 
 
     // 数据结构：保存一张照片和对应的 V-A 值记录
@@ -185,7 +186,9 @@ public class EmotionMonitoringService extends Service {
         Log.d(TAG, "onStartCommand: Service is starting");
         // 启动前台服务，避免在后台被杀
         startForeground(NOTIFICATION_ID, createNotification());
-        lastAbnormalTime = System.currentTimeMillis();
+
+        startTime = System.currentTimeMillis();
+        lastAbnormalTime = startTime;
         // 如果 Intent 中传入了 MediaProjection 权限信息，则初始化屏幕捕捉
         if (intent != null && intent.hasExtra("resultCode") && intent.hasExtra("resultData")) {
             int resultCode = intent.getIntExtra("resultCode", Activity.RESULT_CANCELED);
@@ -209,7 +212,9 @@ public class EmotionMonitoringService extends Service {
     public void onDestroy() {
         super.onDestroy();
         // 保存 globalHistory 到 CSV 文件
-        File csvFile = new File(getExternalFilesDir(Environment.DIRECTORY_ALARMS + "/GlobalHistory"), "av_record_globalHistory.csv");
+        String filename = "vaHistoryRecord"+new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date(startTime))+".csv";
+        String dir = "/record_"+new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date(startTime));
+        File csvFile = new File(getExternalFilesDir(Environment.DIRECTORY_ALARMS + dir), filename);
         GlobalHistory.saveToCSV(csvFile);
         Log.d(TAG, "Global history saved to " + csvFile.getAbsolutePath());
         if (scheduledExecutor != null) {
@@ -402,8 +407,8 @@ public class EmotionMonitoringService extends Service {
                                             //Toast.makeText(getApplicationContext(), "检测到负面情绪异常", Toast.LENGTH_SHORT).show();
                                             saveAbnormalData();
 
-                                            File csvFile = new File(getExternalFilesDir(Environment.DIRECTORY_ALARMS + "/GlobalHistory"), "av_record_globalHistory.csv");
-                                            GlobalHistory.saveToCSV(csvFile);
+                                            //File csvFile = new File(getExternalFilesDir(Environment.DIRECTORY_ALARMS + "/GlobalHistory"), "av_record_globalHistory.csv");
+                                            //GlobalHistory.saveToCSV(csvFile);
 
                                             // ChatGpt
 
@@ -483,7 +488,7 @@ public class EmotionMonitoringService extends Service {
         }
 
         // Step 1: 获取全局历史
-        List<CapturedData> globalHistory = GlobalHistory.getGlobalVAList();
+        List<CapturedData> globalHistory = GlobalHistory.getPartGlobalVAList();
         if(globalHistory.size() < HISTORY_LEAST_SAMPLES_NUM){
             return false;
         }
@@ -497,7 +502,6 @@ public class EmotionMonitoringService extends Service {
 
         // Step 3: 判断短期窗口是否偏离基线
         float sumArousal = 0, sumValence = 0;
-        int deathCount = 0;
         for (CapturedData data : EmotionMonitoringService.captureBuffer) {
             float arousal = data.avValues[0];  // 唤醒度
             float valence = data.avValues[1];  // 愉悦程度
@@ -530,9 +534,6 @@ public class EmotionMonitoringService extends Service {
 //            }
 
         }
-        boolean isDeath = deathCount >= 4;
-
-
 
         // 如果 arousal、valence 在基线的 1~2 个标准差之外，说明有显著波动
 
@@ -549,15 +550,15 @@ public class EmotionMonitoringService extends Service {
         // 你可以继续定义其他情绪阈值，比如烦躁、悲伤等
         // ...
         // 方案3，如果是在笑，就舍弃
-        boolean isHappy = EmotionMonitoringService.captureBuffer.get(3).avValues[1] > 0.15 || EmotionMonitoringService.captureBuffer.get(4).avValues[1] > 0.15;
+        boolean isHappy = EmotionMonitoringService.captureBuffer.get(3).avValues[1] > 0 || EmotionMonitoringService.captureBuffer.get(4).avValues[1] > 0;
 
         // 最终逻辑：若显著偏离基线 并且 落入负面情绪区域，就认为异常
-        return ((isFarFromBaseline && negativeRatioCondition) && !isHappy) || isDeath;
+        return ((isFarFromBaseline && negativeRatioCondition) && !isHappy);
     }
 
     @SuppressLint("SimpleDateFormat")
     private void logReplyToFile(long timestamp, String message) {
-        File logFile = new File(getExternalFilesDir(Environment.DIRECTORY_ALARMS + "/GlobalHistory"), "reply_logs.txt");
+        File logFile = new File(getExternalFilesDir(Environment.DIRECTORY_ALARMS + "/record_"+new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date(startTime))), "reply_logs.txt");
 
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(logFile, true))) {
             writer.write(new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date(timestamp)) + " - " + message);
@@ -570,7 +571,7 @@ public class EmotionMonitoringService extends Service {
     // 将缓冲区内（最近30条）的照片和 V-A 值记录保存下来
     private void saveAbnormalData() {
         // 保存路径：例如保存在应用外部存储的文件夹中
-        String baseDir = getExternalFilesDir(Environment.DIRECTORY_ALARMS) + "/WindowCapture/Abnormal_" +
+        String baseDir = getExternalFilesDir(Environment.DIRECTORY_ALARMS) + "/record_"+new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date(startTime))+"/Abnormal_" +
                 new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
         File dir = new File(baseDir);
         Log.d(TAG, "saveAbnormalData:dir directory " + baseDir);

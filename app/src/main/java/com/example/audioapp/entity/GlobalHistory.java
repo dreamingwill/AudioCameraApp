@@ -18,19 +18,22 @@ public class GlobalHistory {
     private static final String TAG = "GlobalHistory";
     // 可以放在单例、Application 或者数据库中，这里简单用静态 List 演示
     private static final List<CapturedData> globalVAList = new ArrayList<>();
-    private static final int HISTORY_MOST_SAMPLES_NUM =240;
+
+    public static final int HISTORY_PART_SAMPLES_NUM =300;
 
     // 更新全局历史
     public static synchronized void updateGlobalHistory(CapturedData newData) {
-        if (globalVAList.size() >= HISTORY_MOST_SAMPLES_NUM){
-            globalVAList.remove(0);
-        }
+//        if (globalVAList.size() >= HISTORY_MOST_SAMPLES_NUM){
+//            globalVAList.remove(0);
+//        }
         globalVAList.add(newData);
         // 如果担心过大，可做清理或只保存最近N天的数据
     }
 
-    public static synchronized List<CapturedData> getGlobalVAList() {
-        return new ArrayList<>(globalVAList); // 返回副本，避免外部改动原数据
+    public static synchronized List<CapturedData> getPartGlobalVAList() {
+        int size = globalVAList.size();
+        int fromIndex = Math.max(size - HISTORY_PART_SAMPLES_NUM, 0); // 计算起始索引，确保不越界
+        return new ArrayList<>(globalVAList.subList(fromIndex, size)); // 返回副本
     }
     public  static int getSize(){
         return globalVAList.size();
