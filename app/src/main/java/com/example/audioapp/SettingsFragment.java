@@ -166,14 +166,22 @@ public class SettingsFragment extends Fragment {
             requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
                     .putInt(KEY_GAME_TYPE, selectedGameType)
                     .putBoolean("is_landscape", isLandscape)
+                    .putBoolean("reply_locked", true)
                     .apply();
             //Toast.makeText(requireContext(), "设置已保存", Toast.LENGTH_SHORT).show();
 
+            // 可以在这里强制将 KEY_REPLY_LOCKED 设置为 true
             // 保存选择及锁定操作已经在设置中处理，此处直接导航到 SecondFragment
             NavController navController = Navigation.findNavController(view);
             navController.navigate(R.id.SecondFragment);
         });
 
         return view;
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+
     }
 }

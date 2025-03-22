@@ -1,6 +1,8 @@
 package com.example.audioapp.services;
 
 
+import static com.example.audioapp.utils.SimpleDeathDetector.isPlayerDead;
+
 import com.example.audioapp.MainActivity;
 import com.example.audioapp.entity.GlobalHistory;
 import com.example.audioapp.utils.BaselineCalculator;
@@ -56,6 +58,7 @@ import androidx.lifecycle.LifecycleOwner;
 
 import com.example.audioapp.utils.ChatGptHelper;
 import com.example.audioapp.utils.PreferenceHelper;
+import com.example.audioapp.utils.SimpleDeathDetector;
 import com.example.audioapp.utils.YuvToRgbConverter;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -91,7 +94,7 @@ public class EmotionMonitoringService extends Service {
     private static final float AROUSAL_STD_THRESHOLD = 0.12f; // 激活度标准差阈值
     private static final float VALENCE_STD_THRESHOLD = 0.12f; // 情绪价值标准差阈值
 
-    private static final float AROUSAL_Z_SCORE_THRESHOLD = 1.5f; // 激活度标准差阈值
+    private static final float AROUSAL_Z_SCORE_THRESHOLD = 1.6f; // 激活度标准差阈值
     private static final float VALENCE_Z_SCORE_THRESHOLD = 1.3f; // 情绪价值标准差阈值。反正让他俩用一个值了。
     private static final float NEGATIVE_RATIO_THRESHOLD = 0.3f; // 窗口中负面采样占比阈值0.3
     private static final float ANGER_VALENCE_THRESHOLD = -0.28f;
@@ -130,6 +133,7 @@ public class EmotionMonitoringService extends Service {
     private int screenDensity;
     private int gameType;
     private int modeABC;
+    private int deadCount = 0;
 
     private ModelLoader modelLoader;
     // 全局变量存储最新截图
@@ -356,8 +360,22 @@ public class EmotionMonitoringService extends Service {
                                     // 使用全局最新截图，不再重新调用 acquireLatestImage()
                                     captureScreenManually();//
                                     Bitmap screenBitmap = latestScreenBitmap;
+                                    boolean isDead10 = false;
                                     if (screenBitmap != null) {
                                         screenBitmap = screenBitmap.copy(screenBitmap.getConfig(), false);
+                                        // 如果是王者，就加一个根据屏幕的辅助判定。
+                                        if(gameType == 1){
+                                            boolean isDead = SimpleDeathDetector.isPlayerDead(screenBitmap,63,35);
+                                            if(isDead && deadCount < 7){
+                                                deadCount++;
+                                            }else if(isDead && deadCount == 7){
+                                                deadCount=0;
+                                                isDead10=true;
+                                            }else if(!isDead && deadCount>0 && timestamp%2 == 0){
+                                                deadCount--;
+                                            }
+                                        }
+
                                     } else {
                                         Log.d(TAG, "onCaptureSuccess: latestScreenBitmap is null");
                                     }
@@ -376,7 +394,7 @@ public class EmotionMonitoringService extends Service {
 
                                     // 检测是否存在异常（例如：v）
 
-                                    if (isNegativeAbnormal()) {
+                                    if (isNegativeAbnormal()||isDead10) {
                                         long currentTime = System.currentTimeMillis();
                                         if (currentTime - lastAbnormalTime >= ABNORMAL_COOLDOWN_MS) {
                                             lastAbnormalTime = currentTime;
@@ -479,9 +497,11 @@ public class EmotionMonitoringService extends Service {
 
         // Step 3: 判断短期窗口是否偏离基线
         float sumArousal = 0, sumValence = 0;
+        int deathCount = 0;
         for (CapturedData data : EmotionMonitoringService.captureBuffer) {
             float arousal = data.avValues[0];  // 唤醒度
             float valence = data.avValues[1];  // 愉悦程度
+
 
             // 定义负面情绪判断（这里以愤怒为例，你可以扩展更多情绪的判断）
             boolean isAngry = (valence < ANGER_VALENCE_THRESHOLD && arousal > ANGER_AROUSAL_THRESHOLD);
@@ -500,7 +520,17 @@ public class EmotionMonitoringService extends Service {
             if((Math.abs(zArousal) > dynamicThreshold || Math.abs(zValence) > dynamicThreshold)){
                 farFromBaselineCount++;
             }
+
+            //简单死亡判断
+//            if(gameType == 1){
+//                Bitmap screen = data.screenBitmap;
+//                if (isPlayerDead(screen,40,18)){
+//                    deathCount++;
+//                }
+//            }
+
         }
+        boolean isDeath = deathCount >= 4;
 
 
 
@@ -522,7 +552,7 @@ public class EmotionMonitoringService extends Service {
         boolean isHappy = EmotionMonitoringService.captureBuffer.get(3).avValues[1] > 0.15 || EmotionMonitoringService.captureBuffer.get(4).avValues[1] > 0.15;
 
         // 最终逻辑：若显著偏离基线 并且 落入负面情绪区域，就认为异常
-        return (isFarFromBaseline && negativeRatioCondition) && !isHappy;
+        return ((isFarFromBaseline && negativeRatioCondition) && !isHappy) || isDeath;
     }
 
     @SuppressLint("SimpleDateFormat")

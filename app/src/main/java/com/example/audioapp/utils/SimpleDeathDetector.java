@@ -17,6 +17,11 @@ public class SimpleDeathDetector {
     public static boolean isPlayerDead(Bitmap screenBitmap, int brightnessThreshold, int tooDarkThreshold) {
         if (screenBitmap == null) return false;
 
+        // 如果是 HARDWARE 配置，则转换成 ARGB_8888 格式（只读即可，不需要可变）
+        if (screenBitmap.getConfig() == Bitmap.Config.HARDWARE) {
+            screenBitmap = screenBitmap.copy(Bitmap.Config.ARGB_8888, false);
+        }
+
         int width = screenBitmap.getWidth();
         int height = screenBitmap.getHeight();
         int totalPixels = width * height;
@@ -25,19 +30,29 @@ public class SimpleDeathDetector {
         screenBitmap.getPixels(pixels, 0, width, 0, 0, width, height);
 
         long sumBrightness = 0;
+        int validPixelCount = 0;
+        int blackThreshold = 10;  // 判断黑色的阈值
+
         for (int color : pixels) {
-            // 简单计算亮度：取 RGB 平均值
             int r = Color.red(color);
             int g = Color.green(color);
             int b = Color.blue(color);
             int brightness = (r + g + b) / 3;
+            if (brightness <= blackThreshold) {
+                continue;
+            }
             sumBrightness += brightness;
+            validPixelCount++;
         }
 
-        int avgBrightness = (int)(sumBrightness / totalPixels);
-        Log.d("SimpleDeathDetector", "avgBrightness: " + avgBrightness);
+        if (validPixelCount == 0) {
+            Log.d("SimpleDeathDetector", "无有效像素，不作为死亡判定");
+            return false;
+        }
 
-        // 如果画面极度黑暗，可能采集失败，不认为是死亡状态
+        int avgBrightness = (int) (sumBrightness / validPixelCount);
+        Log.d("SimpleDeathDetector", "avgBrightness (排除黑色像素): " + avgBrightness);
+
         if (avgBrightness < tooDarkThreshold) {
             Log.d("SimpleDeathDetector", "画面过于黑暗，可能是采集异常，不作为死亡判定");
             return false;
@@ -45,4 +60,7 @@ public class SimpleDeathDetector {
 
         return avgBrightness < brightnessThreshold;
     }
+
+
+
 }

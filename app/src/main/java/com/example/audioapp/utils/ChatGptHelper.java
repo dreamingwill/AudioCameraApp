@@ -42,11 +42,11 @@ public class ChatGptHelper {
             "2. 提供个性化心理支持和具体操作建议，帮助玩家重建信心；\n" +
             "3. 用轻松幽默的方式安慰玩家，用温和鼓励的语言缓解负面情绪；\n" +
             "4. 必须紧扣玩家正在玩的游戏情况。\n" +
-            "回复不超过15个汉字，请以专业、友善且富有同理心的态度与玩家互动。";
+            "严格要求回复不超过25个汉字，请以专业、友善且富有同理心的态度与玩家互动。";
 
     // 根据不同游戏类型生成任务提示文本
     // 例如：1-王者荣耀，2-金铲铲，3-枪战游戏，4-其他游戏
-    private static final String TASK_PROMPT_KING = "【王者荣耀】请分析局势，分析原因，并给出鼓励，请结合团战情况提出针对性建议。\n"+
+    private static final String TASK_PROMPT_KING = "【王者荣耀】请分析当前对局情况，玩家行为等；并给出鼓励，请结合对局情况提出针对性建议。\n"+
             "温馨提示风格参考:\n"+
             "补刀不准没关系,你的价值不在发育上\n"+
             "团战失误很正常,下次记得跟着节奏走\n"+"小心越塔，不要着急，人头总会是我的\n"+
@@ -99,12 +99,12 @@ public class ChatGptHelper {
         promptBuilder.append(getTaskPrompt(gameType));
         promptBuilder.append("\n");
         // 添加近5秒内每个时刻的情绪数据
-        promptBuilder.append("Arousal表示情感的强度或活跃程度，Valence情感的积极或消极性。近5秒情绪数据 (Arousal,Valence): ");
+        promptBuilder.append("Arousal表示情感的强度或活跃程度，Valence情感的积极或消极性。可以据此分析我的情绪。近5秒情绪数据 (Arousal,Valence): ");
         for (CapturedData data : captureBuffer) {
             promptBuilder.append(String.format("(%.2f,%.2f),", data.avValues[0], data.avValues[1]));
         }
         promptBuilder.append("\n如果上传的图片与选定游戏不一致，请以图片内容为准，但不能说出图片与要求不一致，也不能说‘图片’两个字；应该继续根据图片判断用户在做什么，说些安慰、鼓励的话。");
-        promptBuilder.append("\n回复要求：请用温和幽默的语言，给出安抚建议，不超过15个汉字。");
+        promptBuilder.append("\n回复要求：请用温和幽默的语言，给出安抚建议。严格要求回复不超过25个汉字，这很重要。");
 
         String promptText = promptBuilder.toString();
         Log.d("ChatGptHelper", "Constructed Prompt: " + promptText);
