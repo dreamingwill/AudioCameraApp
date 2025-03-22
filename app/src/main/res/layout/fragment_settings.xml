@@ -31,28 +31,38 @@
                 android:id="@+id/radio_wzry"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textSize="18sp"
+                android:textSize="16sp"
                 android:text="王者荣耀(推荐）" />
 
             <RadioButton
                 android:id="@+id/radio_jc"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:textSize="16sp"
                 android:text="金铲铲"
-                android:visibility="gone"/>
+                />
 
             <RadioButton
                 android:id="@+id/radio_shooter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:textSize="16sp"
                 android:text="枪战游戏"
-                android:visibility="gone"/>
+                />
+
+            <RadioButton
+                android:id="@+id/radio_run"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="16sp"
+                android:text="跑酷游戏"
+                />
 
             <RadioButton
                 android:id="@+id/radio_others"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textSize="18sp"
+                android:textSize="16sp"
                 android:text="其他游戏"
                 />
         </RadioGroup>
@@ -75,15 +85,22 @@
                 android:id="@+id/radio_basic_reply"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textSize="18sp"
+                android:textSize="16sp"
                 android:text="模式A" />
 
             <RadioButton
                 android:id="@+id/radio_gpt_reply"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textSize="18sp"
+                android:textSize="16sp"
                 android:text="模式B" />
+
+            <RadioButton
+                android:id="@+id/c_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="16sp"
+                android:text="模式C" />
         </RadioGroup>
 
         <Button

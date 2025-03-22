@@ -67,6 +67,14 @@ public class SecondFragment extends Fragment {
         // 获取按钮
         Button toggleOrientationButton = view.findViewById(R.id.btn_toggle_orientation);
 
+        SharedPreferences preferences = requireContext().getSharedPreferences("emo_preferences", Context.MODE_PRIVATE);
+
+        boolean getLandscape = preferences.getBoolean("is_landscape", false);
+        if (getLandscape) {
+            requireActivity().setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        } else {
+            requireActivity().setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        }
 
         // 点击按钮切换屏幕方向
         toggleOrientationButton.setOnClickListener(new View.OnClickListener() {
@@ -224,14 +232,7 @@ public class SecondFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        SharedPreferences preferences = requireContext().getSharedPreferences("emo_preferences", Context.MODE_PRIVATE);
-        boolean isLandscape = preferences.getBoolean("is_landscape", false);
 
-        if (isLandscape) {
-            requireActivity().setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-        } else {
-            requireActivity().setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
-        }
     }
     public static void showLongDurationToast(final Context context, final String message, final int durationInMillis) {
         final Toast toast = Toast.makeText(context, message, Toast.LENGTH_LONG);

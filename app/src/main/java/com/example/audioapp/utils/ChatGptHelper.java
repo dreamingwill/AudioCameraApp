@@ -53,6 +53,7 @@ public class ChatGptHelper {
             "装备落后不要紧,运营节奏才是关键\n"+"队友不给力没关系，看我带飞\n";
     private static final String TASK_PROMPT_GOLD = "【金铲铲】请分析截图中玩家局势，指出潜在问题，或是已发生的问题，并给出具体可行的建议与鼓励。";
     private static final String TASK_PROMPT_SHOOTER = "【枪战游戏】请分析截图中玩家的战局，指出团队协作或战术方面的问题，提供针对性建议和鼓励。";
+    private static final String TASK_PROMPT_RUN = "【跑酷游戏】请分析截图中玩家情况，缓解紧张压力，提供鼓励和安慰。";
     private static final String TASK_PROMPT_OTHERS = "【其他游戏】请根据截图内容分析当前游戏情况，给出针对性建议，若图片内容与选定游戏不符，请以图片实际内容为准。";
 
     // 根据游戏类型生成 task prompt
@@ -67,6 +68,7 @@ public class ChatGptHelper {
             case 3:
                 return TASK_PROMPT_SHOOTER;
             case 4:
+                return TASK_PROMPT_RUN;
             default:
                 return TASK_PROMPT_OTHERS;
         }

@@ -20,17 +20,18 @@ import com.example.audioapp.utils.PreferenceHelper;
 public class SettingsFragment extends Fragment {
 
     private RadioGroup replyModeGroup;
-    private RadioButton basicReplyButton, gptReplyButton;
+    private RadioButton basicReplyButton, gptReplyButton, cButton;
 
     private RadioGroup radioGroupGameType;
-    private RadioButton rbWzry, rbJc, rbShooter, rbOthers;
+    private RadioButton rbWzry, rbJc, rbShooter, rbRun, rbOthers;
     private Button btnConfirm;
 
     // SharedPreferences 文件名和键
     private static final String PREFS_NAME = "emo_preferences";
     private static final String KEY_GAME_TYPE = "game_type";
-    public static final boolean DEAD_CHOICE = true; // 把模型选择写死
-    public static final boolean SMART_REPLY = true; //若写死，规定时候智能回复。
+    public static final boolean DEAD_CHOICE = false; // 把模型选择写死
+    public static final boolean SMART_REPLY = true; //若写死，规定时候智能回复;若不写死，它就没用了
+    public static final boolean RAMDOM_ABNORMAL = true; //若写死，规定时候智能回复。
 
 
     @Nullable
@@ -42,12 +43,14 @@ public class SettingsFragment extends Fragment {
         replyModeGroup = view.findViewById(R.id.reply_mode_group);
         basicReplyButton = view.findViewById(R.id.radio_basic_reply);
         gptReplyButton = view.findViewById(R.id.radio_gpt_reply);
+        cButton = view.findViewById(R.id.c_button);
 
 
         radioGroupGameType = view.findViewById(R.id.radioGroupGameType);
         rbWzry = view.findViewById(R.id.radio_wzry);
         rbJc = view.findViewById(R.id.radio_jc);
         rbShooter = view.findViewById(R.id.radio_shooter);
+        rbRun = view.findViewById(R.id.radio_run);
         rbOthers = view.findViewById(R.id.radio_others);
         btnConfirm = view.findViewById(R.id.btn_confirm);
 
@@ -57,10 +60,12 @@ public class SettingsFragment extends Fragment {
             boolean useBasicReply = !SMART_REPLY;
             basicReplyButton.setChecked(useBasicReply);
             gptReplyButton.setChecked(!useBasicReply);
+            cButton.setChecked(false);
             // 禁用修改选项
             replyModeGroup.setEnabled(false);
             basicReplyButton.setEnabled(false);
             gptReplyButton.setEnabled(false);
+            cButton.setEnabled(false);
         }else {
             // 可自由选择，但会锁定和解锁
             // 如果已经锁定，则禁用 RadioGroup 修改
@@ -68,27 +73,40 @@ public class SettingsFragment extends Fragment {
                 replyModeGroup.setEnabled(false);
                 basicReplyButton.setEnabled(false);
                 gptReplyButton.setEnabled(false);
+                cButton.setEnabled(false);
             } else {
                 replyModeGroup.setEnabled(true);
                 basicReplyButton.setEnabled(true);
                 gptReplyButton.setEnabled(true);
+                cButton.setEnabled(true);
             }
 
-            replyModeGroup.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-                @Override
-                public void onCheckedChanged(RadioGroup group, int checkedId) {
-                    boolean useBasicReply;
-                    if (checkedId == R.id.radio_basic_reply) {
-                        useBasicReply = true;
-                    } else if (checkedId == R.id.radio_gpt_reply) {
-                        useBasicReply = false;
-                    } else {
-                        return;
-                    }
-                    // 保存用户选择，并锁定设置
-                    PreferenceHelper.setReplyMode(requireContext(), useBasicReply);
-                    //Toast.makeText(requireContext(), "回复模式已设置，且锁定", Toast.LENGTH_SHORT).show();
+            // 初始化选中状态
+            int savedMode = PreferenceHelper.getReplyMode(requireContext());
+            switch (savedMode) {
+                case 1:
+                    basicReplyButton.setChecked(true);
+                    break;
+                case 2:
+                    gptReplyButton.setChecked(true);
+                    break;
+                case 3:
+                    cButton.setChecked(true);
+                    break;
+                default:
+                    basicReplyButton.setChecked(true);
+            }
+            replyModeGroup.setOnCheckedChangeListener((group, checkedId) -> {
+                int mode = 1; // 默认 A
+                if (checkedId == R.id.radio_basic_reply) {
+                    mode = 1; // A 模式
+                } else if (checkedId == R.id.radio_gpt_reply) {
+                    mode = 2; // B 模式
+                } else if (checkedId == R.id.c_button) {
+                    mode = 3; // C 模式
                 }
+                PreferenceHelper.setReplyMode(requireContext(), mode);
+                //Toast.makeText(requireContext(), "已设置模式 " + mode, Toast.LENGTH_SHORT).show();
             });
         }
 
@@ -111,6 +129,9 @@ public class SettingsFragment extends Fragment {
                 rbShooter.setChecked(true);
                 break;
             case 4:
+                rbRun.setChecked(true);
+                break;
+            case 5:
                 rbOthers.setChecked(true);
                 break;
             default:
@@ -134,8 +155,11 @@ public class SettingsFragment extends Fragment {
             } else if (selectedId == R.id.radio_shooter) {
                 selectedGameType = 3;
                 isLandscape = true;
-            } else if (selectedId == R.id.radio_others) {
+            } else if (selectedId == R.id.radio_run) {
                 selectedGameType = 4;
+                isLandscape = false;
+            }else if(selectedId == R.id.radio_others){
+                selectedGameType = 5;
                 isLandscape = false;
             }
             // 保存用户选择到 SharedPreferences

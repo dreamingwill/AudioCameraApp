@@ -1,5 +1,6 @@
 package com.example.audioapp.services;
 
+
 import com.example.audioapp.MainActivity;
 import com.example.audioapp.entity.GlobalHistory;
 import com.example.audioapp.utils.BaselineCalculator;
@@ -73,6 +74,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import android.app.PendingIntent;
+import java.util.Random;
 import android.content.Intent;
 /**
  * EmotionMonitoringService 用于实时采集照片、调用 torch 模型推理出 V-A 值，
@@ -89,7 +91,7 @@ public class EmotionMonitoringService extends Service {
     private static final float AROUSAL_STD_THRESHOLD = 0.12f; // 激活度标准差阈值
     private static final float VALENCE_STD_THRESHOLD = 0.12f; // 情绪价值标准差阈值
 
-    private static final float AROUSAL_Z_SCORE_THRESHOLD = 1.6f; // 激活度标准差阈值
+    private static final float AROUSAL_Z_SCORE_THRESHOLD = 1.5f; // 激活度标准差阈值
     private static final float VALENCE_Z_SCORE_THRESHOLD = 1.3f; // 情绪价值标准差阈值。反正让他俩用一个值了。
     private static final float NEGATIVE_RATIO_THRESHOLD = 0.3f; // 窗口中负面采样占比阈值0.3
     private static final float ANGER_VALENCE_THRESHOLD = -0.28f;
@@ -99,6 +101,9 @@ public class EmotionMonitoringService extends Service {
     private static final float RELAX_STEP = 0.1f; // 每次放宽步长，0.1
     private static final float MAX_RELAX = 0.8f; // 最大放宽幅度，0.8
     private static final float MAX_RELAX_NEG_RATIO = 0.2f;
+
+    private static final int MODE_C_TIME_MIN = 240_000;
+    private static final int MODE_C_TIME_MAX = 480_000;
     private ImageCapture imageCapture;
     private ProcessCameraProvider cameraProvider;
     private ScheduledExecutorService scheduledExecutor;
@@ -124,6 +129,7 @@ public class EmotionMonitoringService extends Service {
     private int screenHeight;
     private int screenDensity;
     private int gameType;
+    private int modeABC;
 
     private ModelLoader modelLoader;
     // 全局变量存储最新截图
@@ -185,6 +191,7 @@ public class EmotionMonitoringService extends Service {
             Log.w(TAG, "onStartCommand: No MediaProjection extras, screenshot capture disabled");
         }
         //
+        modeABC = PreferenceHelper.getReplyMode(getApplicationContext());
 
 
 
@@ -381,7 +388,8 @@ public class EmotionMonitoringService extends Service {
                                             GlobalHistory.saveToCSV(csvFile);
 
                                             // ChatGpt
-                                            if (PreferenceHelper.isUseBasicReply(getApplicationContext())) {
+
+                                            if (modeABC == 1 || modeABC == 3) {
                                                 // 使用基础回复
                                                 String basicReply = BasicReplyHelper.getRandomReply();
                                                 new Handler(Looper.getMainLooper()).post(() -> {
@@ -445,6 +453,12 @@ public class EmotionMonitoringService extends Service {
 
 
     private boolean isNegativeAbnormal() {
+        if(modeABC == 3) {
+            long current_time = System.currentTimeMillis();
+            Random random = new Random();
+            int randomDelay = MODE_C_TIME_MIN + random.nextInt(MODE_C_TIME_MAX - MODE_C_TIME_MIN + 1);
+            return current_time - lastAbnormalTime > randomDelay;
+        }
         if (EmotionMonitoringService.captureBuffer.size() < WINDOW_SAMPLES_NUM) {
             // 数据不足
             return false;

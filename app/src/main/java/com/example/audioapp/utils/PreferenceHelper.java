@@ -8,29 +8,31 @@ import android.content.SharedPreferences;
 
 public class PreferenceHelper {
     private static final String PREF_NAME = "emo_preferences";
-    private static final String KEY_USE_BASIC_REPLY = "use_basic_reply";
+    private static final String KEY_REPLY_MODE = "reply_mode";  // A=1, B=2, C=3
     private static final String KEY_REPLY_LOCKED = "reply_locked";
 
     // 保存用户选择的回复模式，并锁定选择
-    public static void setReplyMode(Context context, boolean useBasicReply) {
+    public static void setReplyMode(Context context, int  mode) {
         if (DEAD_CHOICE){
             return;
         }
         SharedPreferences sp = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = sp.edit();
-        editor.putBoolean(KEY_USE_BASIC_REPLY, useBasicReply);
+        editor.putInt(KEY_REPLY_MODE, mode);
         // 锁定回复模式（当前会话或永久，视你的需求而定）
         editor.putBoolean(KEY_REPLY_LOCKED, true);
         editor.apply();
     }
 
     // 获取用户选择的回复模式，默认 true
-    public static boolean isUseBasicReply(Context context) {
-        if(DEAD_CHOICE){
-            return !SMART_REPLY;
+
+
+    public static int getReplyMode(Context context) {
+        if(DEAD_CHOICE) {
+            return 2;
         }else {
             SharedPreferences sp = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-            return sp.getBoolean(KEY_USE_BASIC_REPLY, true);
+            return sp.getInt(KEY_REPLY_MODE, 1);
         }
     }
 
