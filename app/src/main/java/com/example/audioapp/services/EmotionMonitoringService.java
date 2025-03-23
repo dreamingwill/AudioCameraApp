@@ -22,7 +22,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.graphics.ImageFormat;
+import android.graphics.PixelFormat;
+import android.graphics.drawable.GradientDrawable;
 import android.hardware.HardwareBuffer;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
@@ -40,11 +43,18 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowManager;
+import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.view.ContextThemeWrapper;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageCaptureException;
@@ -60,6 +70,7 @@ import com.example.audioapp.utils.ChatGptHelper;
 import com.example.audioapp.utils.PreferenceHelper;
 import com.example.audioapp.utils.SimpleDeathDetector;
 import com.example.audioapp.utils.YuvToRgbConverter;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.BufferedWriter;
@@ -199,7 +210,10 @@ public class EmotionMonitoringService extends Service {
         }
         //
         modeABC = PreferenceHelper.getReplyMode(getApplicationContext());
-
+        //
+        new Handler(Looper.getMainLooper()).post(() -> {
+            showSnackbar("敌方14杀，小心对线，别急，稳住节奏。加油！\n失败只是暂时的，调整一下状态继续前进！失败只是暂时的，调整一下状态继续前进！\nlajslkdsjflkasjgf;lkajsd;lfkjas;ldkgja;lsdfkg;lasjfk;lkjag;lkjzsf;ljg");
+        });
 
 
         // 启动摄像头
@@ -370,7 +384,7 @@ public class EmotionMonitoringService extends Service {
                                         screenBitmap = screenBitmap.copy(screenBitmap.getConfig(), false);
                                         // 如果是王者，就加一个根据屏幕的辅助判定。
                                         if(gameType == 1){
-                                            boolean isDead = SimpleDeathDetector.isPlayerDead(screenBitmap,63,35);
+                                            boolean isDead = SimpleDeathDetector.isPlayerDead(screenBitmap,59,35);
                                             if(isDead && deadCount < 7){
                                                 deadCount++;
                                             }else if(isDead && deadCount == 7){
@@ -416,7 +430,8 @@ public class EmotionMonitoringService extends Service {
                                                 // 使用基础回复
                                                 String basicReply = BasicReplyHelper.getRandomReply();
                                                 new Handler(Looper.getMainLooper()).post(() -> {
-                                                    Toast.makeText(getApplicationContext(), basicReply, Toast.LENGTH_LONG).show();
+                                                    showSnackbar(basicReply);
+                                                    //Toast.makeText(getApplicationContext(), basicReply, Toast.LENGTH_LONG).show();
                                                     Log.d(TAG, "onSuccess: BasicReply: " + basicReply);
                                                 });
                                                 // 记录日志到文件等操作也可以添加在这里
@@ -434,11 +449,12 @@ public class EmotionMonitoringService extends Service {
                                                                 logReplyToFile(timestamp, reply);
                                                                 // 在主线程中更新 UI，可使用 Handler 切换
                                                                 new Handler(Looper.getMainLooper()).post(() -> {
-                                                                    Toast toast = Toast.makeText(getApplicationContext(), reply, Toast.LENGTH_LONG);
-                                                                    toast.show();
+//                                                                    Toast toast = Toast.makeText(getApplicationContext(), reply, Toast.LENGTH_LONG);
+//                                                                    toast.show();
+                                                                    showSnackbar(reply);
                                                                     Log.d(TAG, "onSuccess: "+reply);
                                                                     // 额外延长显示时间
-                                                                    new Handler(Looper.getMainLooper()).postDelayed(toast::show, 1000); // 额外延长 3.5 秒
+                                                                    //new Handler(Looper.getMainLooper()).postDelayed(toast::show, 1000); // 额外延长 3.5 秒
                                                                 });
                                                             }
                                                             @Override
@@ -731,6 +747,59 @@ public class EmotionMonitoringService extends Service {
 
         handler.post(toastRunnable);
     }
+
+    private void showSnackbar(String message) {
+        Context appContext = getApplicationContext();
+        WindowManager windowManager = (WindowManager) appContext.getSystemService(Context.WINDOW_SERVICE);
+
+        // 加载自定义布局
+        LayoutInflater inflater = LayoutInflater.from(appContext);
+        View customView = inflater.inflate(R.layout.custom_snackbar, null);
+
+        // 设置图标和文本
+        ImageView iconView = customView.findViewById(R.id.snackbar_icon);
+        iconView.setImageResource(R.drawable.ic_app_icon); // 使用您的应用图标
+
+        TextView textView = customView.findViewById(R.id.snackbar_text);
+        textView.setText(message);
+
+        // 设置 WindowManager 参数
+        WindowManager.LayoutParams params = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ?
+                        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY :
+                        WindowManager.LayoutParams.TYPE_PHONE,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                PixelFormat.TRANSLUCENT);
+        params.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+        params.y = 50; // 距离顶部 50 像素
+
+        // 显示自定义视图
+        windowManager.addView(customView, params);
+// 设置“取消”按钮点击事件
+        Button actionButton = customView.findViewById(R.id.snackbar_action);
+        actionButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                try {
+                    windowManager.removeView(customView);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+        // 3 秒后自动消失
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            try {
+                windowManager.removeView(customView);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }, 4_000);
+    }
+
+
 
 
 

@@ -29,7 +29,7 @@ public class SettingsFragment extends Fragment {
     // SharedPreferences 文件名和键
     private static final String PREFS_NAME = "emo_preferences";
     private static final String KEY_GAME_TYPE = "game_type";
-    public static final boolean DEAD_CHOICE = false;// 把模型选择写死
+    public static final boolean DEAD_CHOICE = true;// 把模型选择写死
     public static final boolean SMART_REPLY = true; //若写死，规定时候智能回复;若不写死，它就没用了
 
 

@@ -1,6 +1,7 @@
 package com.example.audioapp;
 
 import com.example.audioapp.services.EmotionMonitoringService;
+import com.example.audioapp.utils.OverlayPermissionHelper;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -36,6 +37,9 @@ import com.example.audioapp.utils.PreferenceHelper;
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+
+import android.os.Build;
+import android.provider.Settings;
 
 public class SecondFragment extends Fragment {
     public static final String TAG = "SecondFragment";
@@ -232,7 +236,12 @@ public class SecondFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-
+        // 检查悬浮窗权限
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (!Settings.canDrawOverlays(requireActivity())) {
+                OverlayPermissionHelper.verifyOverlayPermission(requireActivity());
+            }
+        }
     }
     public static void showLongDurationToast(final Context context, final String message, final int durationInMillis) {
         final Toast toast = Toast.makeText(context, message, Toast.LENGTH_LONG);
