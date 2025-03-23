@@ -211,9 +211,9 @@ public class EmotionMonitoringService extends Service {
         //
         modeABC = PreferenceHelper.getReplyMode(getApplicationContext());
         // test showSnackbar()
-//        new Handler(Looper.getMainLooper()).post(() -> {
-//            showSnackbar("敌方14杀，小心对线，别急，稳住节奏。加油！\n失败只是暂时的，调整一下状态继续前进！失败只是暂时的，调整一下状态继续前进！\nlajslkdsjflkasjgf;lkajsd;lfkjas;ldkgja;lsdfkg;lasjfk;lkjag;lkjzsf;ljg");
-//        });
+        new Handler(Looper.getMainLooper()).post(() -> {
+            showSnackbar("现在开始游戏吧！");
+        });
 
 
         // 启动摄像头

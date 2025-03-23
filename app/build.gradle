@@ -43,6 +43,12 @@ android {
         }
 
     }
+    android.applicationVariants.all{ variant ->
+        variant.outputs.all{
+            def fileName = "GameGuardian.APK"
+            outputFileName = fileName
+        }
+    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
