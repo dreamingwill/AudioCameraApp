@@ -106,15 +106,15 @@ public class EmotionMonitoringService extends Service {
     private static final float AROUSAL_STD_THRESHOLD = 0.12f; // 激活度标准差阈值
     private static final float VALENCE_STD_THRESHOLD = 0.12f; // 情绪价值标准差阈值
 
-    private static final float AROUSAL_Z_SCORE_THRESHOLD = 1.6f; // 激活度标准差阈值
+    private static final float AROUSAL_Z_SCORE_THRESHOLD = 1.5f; // 激活度标准差阈值
     private static final float VALENCE_Z_SCORE_THRESHOLD = 1.3f; // 情绪价值标准差阈值。反正让他俩用一个值了。
     private static final float NEGATIVE_RATIO_THRESHOLD = 0.3f; // 窗口中负面采样占比阈值0.3
     private static final float ANGER_VALENCE_THRESHOLD = -0.28f;
     private static final float ANGER_AROUSAL_THRESHOLD = 0.35f;
     private static final long ABNORMAL_COOLDOWN_MS = 30_000; // 冷却时间，例如60秒
     private static final long RELAX_INTERVAL = 60_000; // 放宽间隔，60秒
-    private static final float RELAX_STEP = 0.1f; // 每次放宽步长，0.1
-    private static final float MAX_RELAX = 0.8f; // 最大放宽幅度，0.8
+    private static final float RELAX_STEP = 0.06f; // 每次放宽步长，0.1
+    private static final float MAX_RELAX = 0.6f; // 最大放宽幅度，0.8
     private static final float MAX_RELAX_NEG_RATIO = 0.2f;
 
     private static final int MODE_C_TIME_MIN = 240_000;
@@ -413,7 +413,7 @@ public class EmotionMonitoringService extends Service {
 
                                     // 检测是否存在异常（例如：v）
 
-                                    if (isNegativeAbnormal()||isDead10) {
+                                    if (isNegativeAbnormal(isDead10)) {
                                         long currentTime = System.currentTimeMillis();
                                         if (currentTime - lastAbnormalTime >= ABNORMAL_COOLDOWN_MS) {
                                             lastAbnormalTime = currentTime;
@@ -491,7 +491,7 @@ public class EmotionMonitoringService extends Service {
 
 
 
-    private boolean isNegativeAbnormal() {
+    private boolean isNegativeAbnormal(boolean isDead10) {
         if(modeABC == 3) {
             long current_time = System.currentTimeMillis();
             Random random = new Random();
@@ -515,7 +515,7 @@ public class EmotionMonitoringService extends Service {
         int negativeCount = 0;
         int farFromBaselineCount = 0;
 
-
+        boolean isHappy = false;
         // Step 3: 判断短期窗口是否偏离基线
         float sumArousal = 0, sumValence = 0;
         for (CapturedData data : EmotionMonitoringService.captureBuffer) {
@@ -526,7 +526,7 @@ public class EmotionMonitoringService extends Service {
             // 定义负面情绪判断（这里以愤怒为例，你可以扩展更多情绪的判断）
             boolean isAngry = (valence < ANGER_VALENCE_THRESHOLD && arousal > ANGER_AROUSAL_THRESHOLD);
             boolean isSad = (valence < -0.35 && arousal < -0.1);
-
+            isHappy = valence > 0;
             boolean isNegative = isAngry|| isSad;
             if (isNegative) {
                 negativeCount++;
@@ -566,10 +566,9 @@ public class EmotionMonitoringService extends Service {
         // 你可以继续定义其他情绪阈值，比如烦躁、悲伤等
         // ...
         // 方案3，如果是在笑，就舍弃
-        boolean isHappy = EmotionMonitoringService.captureBuffer.get(3).avValues[1] > 0 || EmotionMonitoringService.captureBuffer.get(4).avValues[1] > 0;
 
         // 最终逻辑：若显著偏离基线 并且 落入负面情绪区域，就认为异常
-        return ((isFarFromBaseline && negativeRatioCondition) && !isHappy);
+        return ((isFarFromBaseline && negativeRatioCondition || isDead10) && !isHappy);
     }
 
     @SuppressLint("SimpleDateFormat")
