@@ -68,6 +68,7 @@ import androidx.lifecycle.LifecycleOwner;
 
 import com.example.audioapp.utils.ChatGptHelper;
 import com.example.audioapp.utils.PreferenceHelper;
+import com.example.audioapp.utils.PrivacyUtil;
 import com.example.audioapp.utils.SimpleDeathDetector;
 import com.example.audioapp.utils.YuvToRgbConverter;
 import com.google.android.material.snackbar.Snackbar;
@@ -382,6 +383,8 @@ public class EmotionMonitoringService extends Service {
                                     boolean isDead10 = false;
                                     if (screenBitmap != null) {
                                         screenBitmap = screenBitmap.copy(screenBitmap.getConfig(), false);
+
+
                                         // 如果是王者，就加一个根据屏幕的辅助判定。
                                         if(gameType == 1){
                                             boolean isDead = SimpleDeathDetector.isPlayerDead(screenBitmap,59,35);
@@ -437,7 +440,7 @@ public class EmotionMonitoringService extends Service {
                                                 // 记录日志到文件等操作也可以添加在这里
                                             }else {
                                                 // 使用 GPT 模型回复，示例调用 getInterventionResponse
-                                                ChatGptHelper chatGptHelper = new ChatGptHelper();
+                                                ChatGptHelper chatGptHelper = new ChatGptHelper(getApplicationContext());
                                                 chatGptHelper.getInterventionResponse(
                                                         captureBuffer,
                                                         gameType,
@@ -607,6 +610,7 @@ public class EmotionMonitoringService extends Service {
             synchronized (captureBuffer) {
                 for (CapturedData data : captureBuffer) {
                     String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss_SSS").format(new Date(data.timestamp));
+                    PrivacyUtil privacyUtil = new PrivacyUtil(getApplicationContext());
                     //String camFileName = "CAM_" + timestamp + ".jpg";
                     String scrFileName = "SCR_" + timestamp + ".jpg";
 //                    File camFile = new File(dir, camFileName);
@@ -616,9 +620,14 @@ public class EmotionMonitoringService extends Service {
                     // 如果屏幕截图存在，也保存
                     if (data.screenBitmap != null) {
                         File scrFile = new File(dir, scrFileName);
-                        try (FileOutputStream scrOut = new FileOutputStream(scrFile)) {
-                            data.screenBitmap.compress(Bitmap.CompressFormat.JPEG, 20, scrOut);
-                        }
+                        // 使用异步方法处理隐私区域
+                        privacyUtil.blurTextRegionsAsync(data.screenBitmap, processedBitmap -> {
+                            try (FileOutputStream scrOut = new FileOutputStream(scrFile)) {
+                                processedBitmap.compress(Bitmap.CompressFormat.JPEG, 20, scrOut);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        });
                     }
                     // 生成 CSV 行：摄像头文件名,屏幕截图文件名,,Arousal,Valence
                     String line = timestamp + "," + data.avValues[0] + "," + data.avValues[1] + "\n";

@@ -191,7 +191,7 @@ public class SecondFragment extends Fragment {
             @Override
             public void onClick(View view) {
                 // ChatGpt
-                ChatGptHelper chatGptHelper = new ChatGptHelper();
+                ChatGptHelper chatGptHelper = new ChatGptHelper(requireContext());
 
                 chatGptHelper.getInterventionResponse(
                         EmotionMonitoringService.captureBuffer,

@@ -8,6 +8,7 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.util.Base64;
 import android.util.Log;
@@ -27,6 +28,7 @@ import java.util.List;
 import com.example.audioapp.entity.CapturedData;
 import com.example.audioapp.BuildConfig;
 public class ChatGptHelper {
+    private Context context;
     private static final String TAG = "ChatGptHelper";
     // 请替换为你的实际 API 密钥和 API 端点
     private static final String API_KEY = BuildConfig.OPENAI_BASE_KEY_2;
@@ -76,7 +78,8 @@ public class ChatGptHelper {
 
     private final OkHttpClient client;
 
-    public ChatGptHelper() {
+    public ChatGptHelper(Context context) {
+        this.context = context.getApplicationContext();
         client = new OkHttpClient();
     }
 
@@ -116,6 +119,8 @@ public class ChatGptHelper {
             textObj.put("type", "text");
             textObj.put("text", promptText);
             contentArray.put(textObj);
+            // 创建 PrivacyUtil 实例，注意传入合适的 Context（例如 getApplicationContext() 或当前 Activity 的 context）
+            PrivacyUtil privacyUtil = new PrivacyUtil(context);
 
             // 第二项：图片数据，使用 CapturedData 的 screenBitmap
             // 裁剪 2000*768以内
@@ -124,14 +129,25 @@ public class ChatGptHelper {
                 if (captureBuffer.size() > idx) {
                     CapturedData data = captureBuffer.get(idx);
                     if (data.screenBitmap != null) {
-                        JSONObject imgObj = new JSONObject();
-                        imgObj.put("type", "image_url");
-                        JSONObject urlObj = new JSONObject();
-                        // 这里设置质量为 30，达到降低图片大小的效果
-                        String dataUrl = bitmapToDataUrl(data.screenBitmap, 20);
-                        urlObj.put("url", dataUrl);
-                        imgObj.put("image_url", urlObj);
-                        contentArray.put(imgObj);
+                        // 进行异步模糊处理
+                        privacyUtil.blurTextRegionsAsync(data.screenBitmap, processedBitmap -> {
+                            try {
+                                JSONObject imgObj = new JSONObject();
+                                imgObj.put("type", "image_url");
+                                JSONObject urlObj = new JSONObject();
+                                // 这里设置质量为 20，降低图片大小
+                                String dataUrl = bitmapToDataUrl(processedBitmap, 20);
+                                urlObj.put("url", dataUrl);
+                                imgObj.put("image_url", urlObj);
+
+                                // 添加到 contentArray
+                                synchronized (contentArray) {
+                                    contentArray.put(imgObj);
+                                }
+                            } catch (JSONException e) {
+                                callback.onFailure("JSON构建错误: " + e.getMessage());
+                            }
+                        });
                     }
                 }
             }
