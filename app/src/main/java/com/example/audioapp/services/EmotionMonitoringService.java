@@ -213,7 +213,7 @@ public class EmotionMonitoringService extends Service {
         modeABC = PreferenceHelper.getReplyMode(getApplicationContext());
         // test showSnackbar()
         new Handler(Looper.getMainLooper()).post(() -> {
-            showSnackbar("现在开始游戏吧！");
+            showSnackbar("现在开始游戏吧！现在开始游戏吧！现在开始游戏吧！现在开始游戏吧！现在开始游戏吧！现在开始游戏吧！");
         });
 
 
