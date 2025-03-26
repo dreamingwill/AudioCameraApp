@@ -1,6 +1,7 @@
 package com.example.audioapp.services;
 
 
+import com.example.audioapp.entity.GlobalHistory;
 import static com.example.audioapp.utils.SimpleDeathDetector.isPlayerDead;
 
 import com.example.audioapp.MainActivity;
@@ -102,17 +103,17 @@ public class EmotionMonitoringService extends Service {
 
     // 定义一些阈值和最小采样数量
     private static final int WINDOW_SAMPLES_NUM = 5; // 窗口长度5条数据
-    private static final int HISTORY_LEAST_SAMPLES_NUM = 40; // 至少300个历史数据再记录
+    private static final int HISTORY_LEAST_SAMPLES_NUM = 120; // 至少300个历史数据再记录
     private static final int MIN_RECENT_SAMPLES = 3;        // 至少需要3个采样点
     private static final float AROUSAL_STD_THRESHOLD = 0.12f; // 激活度标准差阈值
     private static final float VALENCE_STD_THRESHOLD = 0.12f; // 情绪价值标准差阈值
 
-    private static final float AROUSAL_Z_SCORE_THRESHOLD = 1.5f; // 激活度标准差阈值
+    private static final float AROUSAL_Z_SCORE_THRESHOLD = 1.6f; // 激活度标准差阈值
     private static final float VALENCE_Z_SCORE_THRESHOLD = 1.3f; // 情绪价值标准差阈值。反正让他俩用一个值了。
     private static final float NEGATIVE_RATIO_THRESHOLD = 0.3f; // 窗口中负面采样占比阈值0.3
     private static final float ANGER_VALENCE_THRESHOLD = -0.28f;
     private static final float ANGER_AROUSAL_THRESHOLD = 0.35f;
-    private static final long ABNORMAL_COOLDOWN_MS = 30_000; // 冷却时间，例如60秒
+    private static final long ABNORMAL_COOLDOWN_MS = 68_000; // 冷却时间，例如60秒
     private static final long RELAX_INTERVAL = 60_000; // 放宽间隔，60秒
     private static final float RELAX_STEP = 0.06f; // 每次放宽步长，0.1
     private static final float MAX_RELAX = 0.6f; // 最大放宽幅度，0.8
@@ -213,10 +214,11 @@ public class EmotionMonitoringService extends Service {
         modeABC = PreferenceHelper.getReplyMode(getApplicationContext());
         // test showSnackbar()
         new Handler(Looper.getMainLooper()).post(() -> {
-            showSnackbar("现在开始游戏吧！现在开始游戏吧！现在开始游戏吧！现在开始游戏吧！现在开始游戏吧！现在开始游戏吧！");
+            showSnackbar("现在开始游戏吧！");
         });
 
-
+        // 记录GlobalHistory开始时的位置
+        GlobalHistory.setSaveStartIndex(GlobalHistory.getSize());
         // 启动摄像头
         startCamera();
 
@@ -463,12 +465,16 @@ public class EmotionMonitoringService extends Service {
                                                             @Override
                                                             public void onFailure(String error) {
                                                                 // 记录失败信息
+                                                                // 使用基础回复
+                                                                String basicReply = BasicReplyHelper.getRandomReply();
+
                                                                 long timestamp = System.currentTimeMillis();
-                                                                logReplyToFile(timestamp, "Failed to get response: " + error);
+                                                                logReplyToFile(timestamp, "Failed to get response: " + error + "\nbasicReply: " + basicReply);
+
                                                                 new Handler(Looper.getMainLooper()).post(() -> {
-                                                                    //showCustomToast(error,5000);
-                                                                    //Toast.makeText(getApplicationContext(), "Failed to get response: " + error, Toast.LENGTH_SHORT).show();
-                                                                    Log.e(TAG, "onFailure: Failed to get response:" + error );
+                                                                    showSnackbar(basicReply);
+                                                                    //Toast.makeText(getApplicationContext(), basicReply, Toast.LENGTH_LONG).show();
+                                                                    Log.d(TAG, "onSuccess: BasicReply: " + basicReply);
                                                                 });
                                                             }
                                                         }

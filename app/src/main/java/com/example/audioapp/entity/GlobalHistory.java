@@ -19,15 +19,19 @@ public class GlobalHistory {
     // 可以放在单例、Application 或者数据库中，这里简单用静态 List 演示
     private static final List<CapturedData> globalVAList = new ArrayList<>();
 
-    public static final int HISTORY_PART_SAMPLES_NUM =300;
+    public static final int HISTORY_PART_SAMPLES_NUM =210;
+    public static final int HISTORY_MAX_SAMPLES_NUM =6000;
+    // 标志位置，表示从 globalVAList 的哪个索引开始保存到 CSV 文件
+    private static int saveStartIndex = 0;
 
     // 更新全局历史
     public static synchronized void updateGlobalHistory(CapturedData newData) {
-//        if (globalVAList.size() >= HISTORY_MOST_SAMPLES_NUM){
-//            globalVAList.remove(0);
-//        }
+        if (globalVAList.size() >= HISTORY_MAX_SAMPLES_NUM){
+            globalVAList.remove(0);
+        }
         globalVAList.add(newData);
         // 如果担心过大，可做清理或只保存最近N天的数据
+
     }
 
     public static synchronized List<CapturedData> getPartGlobalVAList() {
@@ -92,14 +96,13 @@ public class GlobalHistory {
 
     public static synchronized void saveToCSV(File csvFile) {
         try (FileOutputStream fos = new FileOutputStream(csvFile)) {
-            // 写入 CSV 表头
             String header = "Timestamp,Arousal,Valence\n";
             fos.write(header.getBytes());
-
-            // 遍历 globalVAList，写入每一行数据
-            for (CapturedData data : globalVAList) {
-                // 如果 CSV 中记录的时间格式为 yyyyMMdd_HHmmss_SSS，则先转换
-                String timestampStr = new SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.getDefault()).format(new Date(data.timestamp));
+            int start = Math.max(0, saveStartIndex);
+            for (int i = start; i < globalVAList.size(); i++) {
+                CapturedData data = globalVAList.get(i);
+                String timestampStr = new SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.getDefault())
+                        .format(new Date(data.timestamp));
                 String line = timestampStr + "," + data.avValues[0] + "," + data.avValues[1] + "\n";
                 fos.write(line.getBytes());
             }
@@ -107,5 +110,14 @@ public class GlobalHistory {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+    // 设置保存时的起始标志位置（例如：记录当前数据个数，后续只保存新增数据）
+    public static synchronized void setSaveStartIndex(int index) {
+        saveStartIndex = index;
+    }
+
+    // 获取当前保存标志位置
+    public static synchronized int getSaveStartIndex() {
+        return saveStartIndex;
     }
 }

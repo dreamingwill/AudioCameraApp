@@ -50,7 +50,6 @@ public class ChatGptHelper {
     // 例如：1-王者荣耀，2-金铲铲，3-枪战游戏，4-其他游戏
     private static final String TASK_PROMPT_KING = "【王者荣耀】请分析当前对局情况，玩家行为等；并给出鼓励，请结合对局情况提出针对性建议。\n"+
             "温馨提示风格参考:\n"+
-            "补刀不准没关系,你的价值不在发育上\n"+
             "团战失误很正常,下次记得跟着节奏走\n"+"小心越塔，不要着急，人头总会是我的\n"+
             "装备落后不要紧,运营节奏才是关键\n"+"队友不给力没关系，看我带飞\n";
     private static final String TASK_PROMPT_GOLD = "【金铲铲】请分析截图中玩家局势，指出潜在问题，或是已发生的问题，并给出具体可行的建议与鼓励。";
@@ -102,7 +101,8 @@ public class ChatGptHelper {
         promptBuilder.append(getTaskPrompt(gameType));
         promptBuilder.append("\n");
         // 添加近5秒内每个时刻的情绪数据
-        promptBuilder.append("Arousal表示情感的强度或活跃程度，Valence情感的积极或消极性。可以据此分析我的情绪。近5秒情绪数据 (Arousal,Valence): ");
+        promptBuilder.append("Arousal表示情感的强度或活跃程度，Valence情感的积极或消极性。可以据此分析我的情绪，但不要judge。" +
+                "近5秒情绪数据 (Arousal,Valence): ");
         for (CapturedData data : captureBuffer) {
             promptBuilder.append(String.format("(%.2f,%.2f),", data.avValues[0], data.avValues[1]));
         }
